@@ -2,6 +2,7 @@ export default function CurrentFocus({ narrative, lastTurn, apiStatus }) {
   const statusLabel = {
     ready: "api connected",
     connecting: "connecting api",
+    local: "local engine",
     missing: "api not configured",
     unreachable: "api unreachable"
   }[apiStatus] || "api not configured";

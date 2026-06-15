@@ -7,6 +7,101 @@ import Header from "./components/Header.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? "http://localhost:8000" : "");
 
+const LOCAL_NARRATIVE = {
+  objective: null,
+  active_problem: null,
+  current_hypothesis: null,
+  current_architecture: [],
+  current_risks: [],
+  open_loops: [],
+  decisions: [],
+  validations: []
+};
+
+function inferLocalTurn(rawInput, previousNarrative = LOCAL_NARRATIVE) {
+  const text = rawInput.toLowerCase();
+  const isBuild = /constru|crear|hacer|c[oó]digo|deploy|netlify|github|backend|frontend|prompt|midjourney|v8/.test(text);
+  const isValidation = /valid|probar|test|funciona|sirve|medir/.test(text);
+  const isBroken = /no|falta|error|fall|jodido|blanco|problema|bloque/.test(text);
+  const isScope = /y|adem[aá]s|todo|par[aá]metros|reordene|generador/.test(text) && rawInput.length > 80;
+
+  const objective =
+    previousNarrative?.objective ||
+    (isBuild ? "construir un sistema vertical operativo" : "definir el sistema");
+  const activeProblem = isBroken
+    ? "hay una brecha entre interfaz desplegada y motor operativo"
+    : isScope
+      ? "la solicitud mezcla alcance, contrato y salida esperada"
+      : "falta congelar el siguiente movimiento";
+  const collisionType = isBroken
+    ? "contract_violation"
+    : isScope
+      ? "scope_explosion"
+      : isValidation
+        ? "design_without_validation"
+        : "missing_context";
+  const nextBestMove = isBuild
+    ? "congelar el contrato de entrada/salida antes de agregar mas funciones"
+    : isValidation
+      ? "definir casos de prueba medibles"
+      : "formular el objetivo en una frase verificable";
+
+  const narrative = {
+    ...previousNarrative,
+    objective,
+    active_problem: activeProblem,
+    current_risks: Array.from(new Set([...(previousNarrative?.current_risks || []), collisionType])),
+    open_loops: Array.from(new Set([nextBestMove, ...(previousNarrative?.open_loops || [])])).slice(0, 5)
+  };
+
+  const turn = {
+    raw_input: rawInput,
+    user_narrative: {
+      stated_goal: isBuild ? rawInput : null,
+      stated_problem: isBroken ? rawInput : null,
+      stated_constraints: [],
+      stated_beliefs: [],
+      emotional_signal: isBroken ? "friction" : "neutral"
+    },
+    inferred_narrative: {
+      inferred_goal: objective,
+      inferred_problem: activeProblem,
+      inferred_constraints: ["sin backend publico conectado"],
+      inferred_beliefs: [],
+      inferred_risk: collisionType
+    },
+    collision_detection: {
+      exists: true,
+      type: collisionType,
+      severity: isBroken ? 0.82 : 0.64,
+      evidence: [rawInput]
+    },
+    implication_engine: {
+      implications: ["el sistema debe responder aun sin completar infraestructura externa"],
+      risks: [collisionType],
+      next_best_move: nextBestMove
+    },
+    response_plan: {
+      move: isBroken ? "correct" : isValidation ? "test" : "decompose",
+      purpose: "mantener avance operativo sin perder contrato del sistema",
+      must_include: ["colision detectada", "narrativa actual", "siguiente movimiento"],
+      must_avoid: ["respuesta generica", "debug visible"]
+    },
+    answer: [
+      `Detecto una colision: ${collisionType}.`,
+      "",
+      "Narrativa actual:",
+      `- objetivo: ${objective}`,
+      `- problema activo: ${activeProblem}`,
+      `- riesgo: avanzar sin cerrar ${collisionType}`,
+      "",
+      `Siguiente movimiento: ${nextBestMove}.`
+    ].join("\n")
+  };
+
+  return { turn, narrative };
+}
+
 export default function App() {
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([
@@ -37,7 +132,8 @@ export default function App() {
 
   async function bootstrapSession() {
     if (!API_BASE) {
-      setApiStatus("missing");
+      setApiStatus("local");
+      setNarrative(LOCAL_NARRATIVE);
       return;
     }
     const stored = sessionStorage.getItem("microbrain_session_id");
@@ -60,11 +156,12 @@ export default function App() {
       await refreshNarrative(session.id);
     } catch (error) {
       setApiStatus("unreachable");
+      setNarrative(LOCAL_NARRATIVE);
       setMessages((items) => [
         ...items,
         {
           role: "bot",
-          text: "Backend no conectado. La interfaz esta lista; configura VITE_API_BASE con la URL publica del API para procesar turnos."
+          text: "Backend no conectado. Activo motor local temporal para mantener el flujo hasta conectar VITE_API_BASE."
         }
       ]);
     }
@@ -85,13 +182,11 @@ export default function App() {
   async function sendTurn(rawInput) {
     setMessages((items) => [...items, { role: "user", text: rawInput }]);
     if (!API_BASE || !sessionId) {
-      setMessages((items) => [
-        ...items,
-        {
-          role: "bot",
-          text: "No puedo procesar el turno todavia: falta conectar el backend publico en VITE_API_BASE."
-        }
-      ]);
+      const { turn, narrative: nextNarrative } = inferLocalTurn(rawInput, narrative || LOCAL_NARRATIVE);
+      setLastTurn(turn);
+      setNarrative(nextNarrative);
+      setApiStatus("local");
+      setMessages((items) => [...items, { role: "bot", text: turn.answer }]);
       return;
     }
     try {
@@ -107,12 +202,12 @@ export default function App() {
       await refreshNarrative(sessionId);
     } catch {
       setApiStatus("unreachable");
+      const { turn, narrative: nextNarrative } = inferLocalTurn(rawInput, narrative || LOCAL_NARRATIVE);
+      setLastTurn(turn);
+      setNarrative(nextNarrative);
       setMessages((items) => [
         ...items,
-        {
-          role: "bot",
-          text: "El API no respondio. Revisa que el backend este desplegado y que VITE_API_BASE apunte a su URL HTTPS."
-        }
+        { role: "bot", text: turn.answer }
       ]);
     }
   }
