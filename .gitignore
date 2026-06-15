@@ -1,0 +1,15 @@
+node_modules/
+dist/
+/app/
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+*.db
+*.sqlite
+.env
+.env.*
+!.env.example
+*.zip
+.codex-remote-attachments/
+NETLIFY_UPLOAD_THIS_COGWHEEL/

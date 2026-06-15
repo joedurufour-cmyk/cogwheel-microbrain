@@ -1,0 +1,39 @@
+def infer_implications(narrative_model: dict, collision: dict, intent: dict) -> dict:
+    implications = []
+    risks = []
+    next_best_move = "define system objective"
+
+    if collision["type"] == "scope_explosion":
+        implications.append("diagnostics may overwhelm normal users")
+        risks.append("debug surface becomes product surface")
+        next_best_move = "hide diagnostics behind developer mode"
+    elif collision["type"] == "contract_violation":
+        implications.append("system may not be reconstructable")
+        risks.append("contract cannot be audited reliably")
+        next_best_move = "switch to reconstructable system contract"
+    elif collision["type"] == "implementation_without_design":
+        implications.append("implementation may proceed without frozen architecture")
+        risks.append("code churn without narrative stability")
+        next_best_move = "freeze contract before coding"
+    elif collision["type"] == "design_without_validation":
+        implications.append("validation missing")
+        implications.append("build may continue without evidence")
+        risks.append("features accumulate without proof")
+        next_best_move = "define test cases before adding features"
+    elif collision["type"] == "goal_drift":
+        implications.append("original narrative may be lost")
+        risks.append("system becomes generic chatbot")
+        next_best_move = "realign objective and active problem"
+    elif collision["type"] == "over_inference":
+        implications.append("engine needs stricter evidence threshold")
+        risks.append("answer may exceed user-provided facts")
+        next_best_move = "add over-inference guard to response planner"
+    elif intent.get("explicit") == "choose next move":
+        implications.append("user needs an architectural action, not explanation")
+        next_best_move = "choose one next architectural move"
+
+    inferred_risk = narrative_model.get("current_risks", [None])[-1] if narrative_model.get("current_risks") else None
+    if inferred_risk and inferred_risk not in risks:
+        risks.append(inferred_risk)
+
+    return {"implications": implications, "risks": risks, "next_best_move": next_best_move}
