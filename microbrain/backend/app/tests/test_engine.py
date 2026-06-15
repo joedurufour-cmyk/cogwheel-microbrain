@@ -1,5 +1,9 @@
 from app.engine.answer_renderer import render_answer
 from app.engine.collision_engine import detect_collision
+from app.engine.dialogue_state_tracker import update_narrative_with_dialogue_state
+from app.engine.domain_contract_router import detect_domain, load_domain_contract
+from app.engine.domain_state_tracker import detect_anticipation_gaps, empty_domain_state, update_domain_state
+from app.engine.gap_resolution_engine import resolve_gaps
 from app.engine.implication_engine import infer_implications
 from app.engine.intent_reader import infer_intent
 from app.engine.kb import TEST_INPUTS
@@ -57,3 +61,87 @@ def test_object_extractor_prompt_generator_case():
     assert result["narrative"]["blocking_gap"] == "missing_io_contract"
     assert "prompt_generator" in result["answer"]
     assert "define system objective" not in result["answer"]
+
+
+def run_domain_turn(raw_input: str, narrative_before=None, domain_state_before=None):
+    narrative_before = narrative_before or empty_narrative()
+    domain_state_before = domain_state_before or empty_domain_state()
+    narrative_before = {**narrative_before, "domain_state": domain_state_before}
+    segments = segment(raw_input)
+    extraction = extract_objects(raw_input, segments)
+    active_domain = detect_domain(raw_input, extraction, narrative_before)
+    contract = load_domain_contract(active_domain)
+    graph = build_relationship_graph({**narrative_before, "resolved_gaps": domain_state_before.get("resolved_gaps", [])}, extraction)
+    narrative = update_narrative_model(narrative_before, segments, raw_input, graph)
+    gap_resolution = resolve_gaps(raw_input, narrative, domain_state_before, contract)
+    domain_state = update_domain_state(domain_state_before, active_domain, gap_resolution, extraction, contract)
+    anticipation = detect_anticipation_gaps(domain_state, contract, gap_resolution.get("inferred_data", []))
+    domain_state["anticipation_gaps"] = anticipation["anticipation_gaps"]
+    narrative = update_narrative_with_dialogue_state(
+        narrative,
+        narrative_before,
+        gap_resolution,
+        anticipation,
+        domain_state,
+    )
+    return {
+        "narrative": narrative,
+        "domain_state": domain_state,
+        "gap_resolution": gap_resolution,
+        "anticipation": anticipation,
+        "contract": contract.model_dump(),
+    }
+
+
+def test_detect_midjourney_domain_contract():
+    result = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
+    assert result["domain_state"]["active_domain"] == "midjourney_v8_1_core"
+    assert "prompt_generator" in result["narrative"]["central_objects"]
+    assert result["narrative"]["blocking_gap"] == "missing_io_contract"
+    assert result["contract"]["domain_id"] == "midjourney_v8_1_core"
+
+
+def test_resolve_input_contract_advances_gap():
+    before = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
+    result = run_domain_turn("Input texto libre y bloques semánticos", before["narrative"], before["domain_state"])
+    assert "missing_io_contract" in result["domain_state"]["resolved_gaps"]
+    assert result["narrative"]["input_contract"] == {"mode": ["free_text", "semantic_blocks"]}
+    assert result["narrative"]["blocking_gap"] == "missing_output_contract"
+
+
+def test_do_not_repeat_resolved_input_gap():
+    first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
+    second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])
+    third = run_domain_turn("Usaremos metodología Kimi 2.6", second["narrative"], second["domain_state"])
+    assert third["narrative"]["blocking_gap"] == "missing_output_contract"
+    assert third["narrative"]["blocking_gap"] != "missing_io_contract"
+
+
+def test_resolve_output_contract_advances_to_domain_parameters():
+    first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
+    second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])
+    third = run_domain_turn(
+        "El output debe ser prompt final, negative prompt y parámetros --ar --s --v 8.1",
+        second["narrative"],
+        second["domain_state"],
+    )
+    assert "missing_output_contract" in third["domain_state"]["resolved_gaps"]
+    assert third["narrative"]["output_contract"] == {
+        "includes": ["positive_prompt", "negative_prompt", "technical_parameters"]
+    }
+    assert third["narrative"]["blocking_gap"] == "missing_domain_parameters"
+
+
+def test_anticipate_midjourney_domain_parameters():
+    first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
+    second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])
+    third = run_domain_turn(
+        "El output debe ser prompt final, negative prompt y parámetros --ar --s --v 8.1",
+        second["narrative"],
+        second["domain_state"],
+    )
+    fourth = run_domain_turn("Será para renders cinemáticos de arquitectura", third["narrative"], third["domain_state"])
+    assert "architecture_render" in fourth["anticipation"]["inferred_data"]
+    assert "cinematic_candidate_aspect_ratio" in fourth["anticipation"]["inferred_data"]
+    assert "confirm_aspect_ratio" in fourth["anticipation"]["anticipation_gaps"]
+    assert "confirm_stylization_level" in fourth["anticipation"]["anticipation_gaps"]

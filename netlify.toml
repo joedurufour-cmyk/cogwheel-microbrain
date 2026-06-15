@@ -5,6 +5,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  VITE_API_BASE = "https://cogwheel-microbrain-api.onrender.com"
 
 [[headers]]
   for = "/service-worker.js"

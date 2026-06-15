@@ -25,6 +25,26 @@ export default function DevDrawer({ apiBase, sessionId, open, onClose, narrative
         <summary>Turn Report</summary>
         <pre>{JSON.stringify(lastTurn?.report || {}, null, 2)}</pre>
       </details>
+      <details open>
+        <summary>Domain State</summary>
+        <pre>{JSON.stringify(lastTurn?.domain_state || narrative?.domain_state || {}, null, 2)}</pre>
+      </details>
+      <details>
+        <summary>Gap Resolution</summary>
+        <pre>{JSON.stringify(lastTurn?.gap_resolution || {}, null, 2)}</pre>
+      </details>
+      <details>
+        <summary>Resolved Gaps</summary>
+        <pre>{JSON.stringify(lastTurn?.domain_state?.resolved_gaps || narrative?.resolved_gaps || [], null, 2)}</pre>
+      </details>
+      <details>
+        <summary>Anticipation Gaps</summary>
+        <pre>{JSON.stringify(lastTurn?.anticipation?.anticipation_gaps || narrative?.anticipation_gaps || [], null, 2)}</pre>
+      </details>
+      <details>
+        <summary>Active Domain Contract</summary>
+        <pre>{JSON.stringify(lastTurn?.active_domain_contract || {}, null, 2)}</pre>
+      </details>
       <details>
         <summary>Narrative State</summary>
         <pre>{JSON.stringify(narrative || {}, null, 2)}</pre>

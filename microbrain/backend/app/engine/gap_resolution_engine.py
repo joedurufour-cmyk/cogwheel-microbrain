@@ -1,0 +1,171 @@
+import re
+import unicodedata
+from copy import deepcopy
+
+
+GAP_RESOLUTION_RULES = {
+    "missing_io_contract": {
+        "detects_resolution_terms": [
+            "texto libre",
+            "bloques semanticos",
+            "bloques semánticos",
+            "formulario",
+            "campos",
+            "input",
+            "entrada",
+            "output",
+            "salida",
+        ],
+        "write_to": "system_story.io_contract",
+        "next_gap": "missing_output_contract",
+    },
+    "missing_output_contract": {
+        "detects_resolution_terms": [
+            "prompt final",
+            "negative prompt",
+            "parametros",
+            "parámetros",
+            "--ar",
+            "--s",
+            "--v",
+            "json",
+            "markdown",
+        ],
+        "write_to": "system_story.output_contract",
+        "next_gap": "missing_domain_parameters",
+    },
+    "missing_domain_parameters": {
+        "detects_resolution_terms": [
+            "aspect ratio",
+            "stylize",
+            "chaos",
+            "seed",
+            "v 8.1",
+            "midjourney",
+        ],
+        "write_to": "domain_state.domain_parameters",
+        "next_gap": None,
+    },
+}
+
+
+def resolve_gaps(raw_input: str, narrative_state: dict, domain_state: dict, contract) -> dict:
+    text = normalize(raw_input)
+    resolved_before = set(domain_state.get("resolved_gaps") or narrative_state.get("resolved_gaps") or [])
+    active_gap = narrative_state.get("blocking_gap") or first_unresolved_loop(narrative_state, resolved_before)
+    result = {
+        "resolved_gaps": [],
+        "active_gap_before": active_gap,
+        "blocking_gap": active_gap if active_gap not in resolved_before else None,
+        "next_gap": None,
+        "input_contract": narrative_state.get("input_contract") or {},
+        "output_contract": narrative_state.get("output_contract") or {},
+        "domain_parameters": deepcopy(domain_state.get("domain_parameters") or {}),
+        "inferred_data": infer_domain_data(text, contract.domain_id),
+        "write_to": None,
+    }
+
+    if not active_gap or active_gap in resolved_before:
+        result["blocking_gap"] = first_unresolved_loop(narrative_state, resolved_before)
+        return result
+
+    rule = GAP_RESOLUTION_RULES.get(active_gap)
+    if not rule or not has_resolution_terms(text, rule["detects_resolution_terms"]):
+        return result
+
+    result["resolved_gaps"].append(active_gap)
+    result["write_to"] = rule["write_to"]
+    result["next_gap"] = rule["next_gap"]
+    result["blocking_gap"] = rule["next_gap"]
+
+    if active_gap == "missing_io_contract":
+        result["input_contract"] = {"mode": detect_input_modes(text)}
+    elif active_gap == "missing_output_contract":
+        result["output_contract"] = {"includes": detect_output_includes(text)}
+    elif active_gap == "missing_domain_parameters":
+        result["domain_parameters"] = {**result["domain_parameters"], **detect_domain_parameters(text)}
+
+    return result
+
+
+def first_unresolved_loop(narrative_state: dict, resolved: set[str]) -> str | None:
+    for loop in narrative_state.get("open_loops") or []:
+        if loop not in resolved:
+            return loop
+    return None
+
+
+def has_resolution_terms(text: str, terms: list[str]) -> bool:
+    normalized_terms = [normalize(term) for term in terms]
+    return any(term in text for term in normalized_terms)
+
+
+def detect_input_modes(text: str) -> list[str]:
+    modes = []
+    if "texto libre" in text or "free text" in text:
+        modes.append("free_text")
+    if "bloques semanticos" in text:
+        modes.append("semantic_blocks")
+    if "formulario" in text or "campos" in text:
+        modes.append("form_fields")
+    if "input" in text or "entrada" in text:
+        modes.append("free_text")
+    return ordered_unique(modes or ["free_text"])
+
+
+def detect_output_includes(text: str) -> list[str]:
+    includes = []
+    if "prompt final" in text or "positive prompt" in text:
+        includes.append("positive_prompt")
+    if "negative prompt" in text:
+        includes.append("negative_prompt")
+    if "parametros" in text or "--ar" in text or "--s" in text or "--v" in text:
+        includes.append("technical_parameters")
+    if "json" in text:
+        includes.append("json")
+    if "markdown" in text:
+        includes.append("markdown")
+    return ordered_unique(includes or ["positive_prompt"])
+
+
+def detect_domain_parameters(text: str) -> dict:
+    parameters = {}
+    ar_match = re.search(r"--ar\s+([0-9]+:[0-9]+)", text)
+    if ar_match:
+        parameters["aspect_ratio"] = ar_match.group(1)
+    s_match = re.search(r"--s\s+([0-9]+)", text)
+    if s_match:
+        parameters["stylize"] = int(s_match.group(1))
+    if "--v 8.1" in text or "v 8.1" in text:
+        parameters["version"] = "8.1"
+    if "chaos" in text:
+        parameters["chaos"] = None
+    if "seed" in text:
+        parameters["seed"] = None
+    return parameters
+
+
+def infer_domain_data(text: str, domain_id: str) -> list[str]:
+    if domain_id != "midjourney_v8_1_core":
+        return []
+    data = []
+    if "arquitectura" in text or "architecture" in text:
+        data.append("architecture_render")
+    if "cinematic" in text or "cinematico" in text or "cinematicos" in text:
+        data.append("cinematic_candidate_aspect_ratio")
+    if "producto" in text or "product render" in text:
+        data.append("clean_studio_lighting")
+    return data
+
+
+def normalize(value: str) -> str:
+    decomposed = unicodedata.normalize("NFD", value.lower())
+    return "".join(char for char in decomposed if unicodedata.category(char) != "Mn")
+
+
+def ordered_unique(items: list[str]) -> list[str]:
+    result = []
+    for item in items:
+        if item and item not in result:
+            result.append(item)
+    return result

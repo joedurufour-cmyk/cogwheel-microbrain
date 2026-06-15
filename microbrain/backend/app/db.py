@@ -42,6 +42,11 @@ def ensure_lightweight_migrations() -> None:
         "central_objects_json": "TEXT DEFAULT '[]'",
         "active_relations_json": "TEXT DEFAULT '[]'",
         "blocking_gap": "TEXT",
+        "input_contract_json": "TEXT DEFAULT '{}'",
+        "output_contract_json": "TEXT DEFAULT '{}'",
+        "resolved_gaps_json": "TEXT DEFAULT '[]'",
+        "active_domain": "TEXT",
+        "anticipation_gaps_json": "TEXT DEFAULT '[]'",
     }
     with engine.begin() as connection:
         for column, ddl_type in additions.items():

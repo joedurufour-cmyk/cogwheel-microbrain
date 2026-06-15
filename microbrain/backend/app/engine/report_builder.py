@@ -11,6 +11,10 @@ def build_report(
     answer: str,
     object_extraction: dict | None = None,
     relationship_graph: dict | None = None,
+    gap_resolution: dict | None = None,
+    domain_state: dict | None = None,
+    active_domain_contract: dict | None = None,
+    anticipation: dict | None = None,
 ) -> dict:
     return {
         "what_i_detected": [
@@ -26,6 +30,10 @@ def build_report(
         "implication_used": implications.get("implications", []),
         "object_extraction": object_extraction or {},
         "relationship_graph": relationship_graph or {},
+        "gap_resolution": gap_resolution or {},
+        "domain_state": domain_state or {},
+        "active_domain_contract": active_domain_contract or {},
+        "anticipation_gaps": (anticipation or {}).get("anticipation_gaps", []),
         "response_plan": response_plan,
         "answer_given": answer,
     }
@@ -36,7 +44,7 @@ def memory_changes(before: dict, after: dict) -> list[str]:
     for key in ["objective", "active_problem", "current_hypothesis"]:
         if before.get(key) != after.get(key):
             changes.append(f"{key}: {before.get(key)} -> {after.get(key)}")
-    for key in ["current_architecture", "current_risks", "open_loops", "validations"]:
+    for key in ["current_architecture", "current_risks", "open_loops", "validations", "resolved_gaps"]:
         if before.get(key) != after.get(key):
             changes.append(f"{key} updated")
     return changes

@@ -16,6 +16,7 @@ class Session(Base):
 
     turns = relationship("Turn", back_populates="session", cascade="all, delete-orphan")
     narrative_state = relationship("NarrativeState", back_populates="session", uselist=False, cascade="all, delete-orphan")
+    domain_state = relationship("DomainState", back_populates="session", uselist=False, cascade="all, delete-orphan")
 
 
 class Turn(Base):
@@ -47,9 +48,30 @@ class NarrativeState(Base):
     open_loops_json: Mapped[str] = mapped_column(Text, default="[]")
     decisions_json: Mapped[str] = mapped_column(Text, default="[]")
     validations_json: Mapped[str] = mapped_column(Text, default="[]")
+    input_contract_json: Mapped[str] = mapped_column(Text, default="{}")
+    output_contract_json: Mapped[str] = mapped_column(Text, default="{}")
+    resolved_gaps_json: Mapped[str] = mapped_column(Text, default="[]")
+    active_domain: Mapped[str | None] = mapped_column(Text, nullable=True)
+    anticipation_gaps_json: Mapped[str] = mapped_column(Text, default="[]")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     session = relationship("Session", back_populates="narrative_state")
+
+
+class DomainState(Base):
+    __tablename__ = "domain_states"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"), unique=True, index=True)
+    active_domain: Mapped[str] = mapped_column(Text, default="system_design_navigation")
+    domain_parameters_json: Mapped[str] = mapped_column(Text, default="{}")
+    resolved_gaps_json: Mapped[str] = mapped_column(Text, default="[]")
+    anticipation_gaps_json: Mapped[str] = mapped_column(Text, default="[]")
+    next_action_prompt: Mapped[str] = mapped_column(Text, default="")
+    domain_confidence: Mapped[float] = mapped_column(Float, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    session = relationship("Session", back_populates="domain_state")
 
 
 class TurnReport(Base):

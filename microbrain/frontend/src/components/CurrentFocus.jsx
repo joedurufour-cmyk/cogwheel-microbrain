@@ -16,24 +16,25 @@ export default function CurrentFocus({ narrative, lastTurn, apiStatus }) {
           <strong>{narrative?.objective || "none"}</strong>
         </div>
         <div>
-          <span>Active Problem</span>
-          <strong>{narrative?.active_problem || "none"}</strong>
-        </div>
-        <div>
-          <span>Next Move</span>
-          <strong>
-            {lastTurn?.implication_engine?.next_best_move ||
-              narrative?.open_loops?.[0] ||
-              (narrative?.central_objects?.[0] ? "define object input/output contract" : "define system objective")}
-          </strong>
-        </div>
-        <div>
           <span>Central Object</span>
           <strong>{narrative?.central_objects?.[0] || "none"}</strong>
         </div>
         <div>
+          <span>Active Domain</span>
+          <strong>{narrative?.active_domain || lastTurn?.domain_state?.active_domain || "none"}</strong>
+        </div>
+        <div>
           <span>Blocking Gap</span>
           <strong>{narrative?.blocking_gap || "none"}</strong>
+        </div>
+        <div>
+          <span>Next Move</span>
+          <strong>
+            {lastTurn?.domain_state?.next_action_prompt ||
+              lastTurn?.implication_engine?.next_best_move ||
+              narrative?.open_loops?.[0] ||
+              (narrative?.central_objects?.[0] ? "define object input/output contract" : "define system objective")}
+          </strong>
         </div>
         <div>
           <span>Connection</span>

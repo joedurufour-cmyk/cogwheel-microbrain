@@ -5,6 +5,15 @@ from sqlalchemy.orm import Session as DbSession
 from app import models
 from app.engine.answer_renderer import render_answer
 from app.engine.collision_engine import detect_collision
+from app.engine.dialogue_state_tracker import update_narrative_with_dialogue_state
+from app.engine.domain_contract_router import detect_domain, load_domain_contract
+from app.engine.domain_state_tracker import (
+    detect_anticipation_gaps,
+    load_domain_state,
+    persist_domain_state,
+    update_domain_state,
+)
+from app.engine.gap_resolution_engine import resolve_gaps
 from app.engine.implication_engine import infer_implications
 from app.engine.intent_reader import infer_intent
 from app.engine.mental_model import update_mental_model
@@ -18,18 +27,50 @@ from app.engine.segmenter import segment
 
 def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
     narrative_before = load_narrative(db, session_id)
+    domain_state_before = load_domain_state(db, session_id)
+    narrative_before["domain_state"] = domain_state_before
+    narrative_before["active_domain"] = domain_state_before.get("active_domain")
+    narrative_before["resolved_gaps"] = domain_state_before.get("resolved_gaps", [])
     segments = segment(raw_input)
     object_extraction = extract_objects(raw_input, segments)
+    active_domain = detect_domain(raw_input, object_extraction, narrative_before)
+    domain_contract = load_domain_contract(active_domain)
     relationship_graph = build_relationship_graph(narrative_before, object_extraction)
     narrative_model = update_narrative_model(narrative_before, segments, raw_input, relationship_graph)
     mental_model = update_mental_model(narrative_before, segments, raw_input)
     intent = infer_intent(raw_input, segments)
+    gap_resolution = resolve_gaps(
+        raw_input=raw_input,
+        narrative_state=narrative_model,
+        domain_state=domain_state_before,
+        contract=domain_contract,
+    )
+    updated_domain_state = update_domain_state(
+        domain_state_before,
+        active_domain,
+        gap_resolution,
+        object_extraction,
+        domain_contract,
+    )
+    anticipation = detect_anticipation_gaps(
+        updated_domain_state,
+        domain_contract,
+        gap_resolution.get("inferred_data", []),
+    )
+    updated_domain_state["anticipation_gaps"] = anticipation.get("anticipation_gaps", [])
+    narrative_model = update_narrative_with_dialogue_state(
+        narrative_model,
+        narrative_before,
+        gap_resolution,
+        anticipation,
+        updated_domain_state,
+    )
     collision = detect_collision(narrative_before, narrative_model, mental_model, intent)
     implications = infer_implications(narrative_model, collision, intent)
     response_plan = build_response_plan(intent, collision, implications)
     if not response_plan:
         raise Exception("NO_RESPONSE_PLAN")
-    answer = render_answer(response_plan, narrative_model, implications, collision)
+    answer = render_answer(response_plan, narrative_model, implications, collision, gap_resolution, updated_domain_state)
 
     turn = models.Turn(session_id=session_id, raw_input=raw_input, answer=answer)
     db.add(turn)
@@ -49,9 +90,14 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         answer,
         object_extraction,
         relationship_graph,
+        gap_resolution,
+        updated_domain_state,
+        domain_contract.model_dump(),
+        anticipation,
     )
 
     persist_narrative(db, session_id, narrative_model)
+    persist_domain_state(db, session_id, updated_domain_state)
     persist_objects_and_relations(db, session_id, object_extraction, relationship_graph, str(turn.id))
     db.add(models.TurnReport(turn_id=turn.id, report_json=json.dumps(report)))
     if collision["exists"]:
@@ -80,6 +126,10 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         "implication_engine": implications,
         "response_plan": response_plan,
         "answer": answer,
+        "gap_resolution": gap_resolution,
+        "domain_state": updated_domain_state,
+        "active_domain_contract": domain_contract.model_dump(),
+        "anticipation": anticipation,
         "report": report,
     }
 
@@ -105,6 +155,11 @@ def load_narrative(db: DbSession, session_id: int) -> dict:
         "open_loops": json.loads(state.open_loops_json or "[]"),
         "decisions": json.loads(state.decisions_json or "[]"),
         "validations": json.loads(state.validations_json or "[]"),
+        "input_contract": json.loads(state.input_contract_json or "{}"),
+        "output_contract": json.loads(state.output_contract_json or "{}"),
+        "resolved_gaps": json.loads(state.resolved_gaps_json or "[]"),
+        "active_domain": state.active_domain,
+        "anticipation_gaps": json.loads(state.anticipation_gaps_json or "[]"),
     }
 
 
@@ -124,6 +179,11 @@ def persist_narrative(db: DbSession, session_id: int, narrative: dict) -> None:
     state.open_loops_json = json.dumps(narrative.get("open_loops", []))
     state.decisions_json = json.dumps(narrative.get("decisions", []))
     state.validations_json = json.dumps(narrative.get("validations", []))
+    state.input_contract_json = json.dumps(narrative.get("input_contract", {}))
+    state.output_contract_json = json.dumps(narrative.get("output_contract", {}))
+    state.resolved_gaps_json = json.dumps(narrative.get("resolved_gaps", []))
+    state.active_domain = narrative.get("active_domain")
+    state.anticipation_gaps_json = json.dumps(narrative.get("anticipation_gaps", []))
 
 
 def empty_narrative() -> dict:
@@ -140,6 +200,11 @@ def empty_narrative() -> dict:
         "open_loops": [],
         "decisions": [],
         "validations": [],
+        "input_contract": {},
+        "output_contract": {},
+        "resolved_gaps": [],
+        "active_domain": None,
+        "anticipation_gaps": [],
     }
 
 
