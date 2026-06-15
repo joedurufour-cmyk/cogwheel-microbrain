@@ -11,7 +11,7 @@ def build_relationship_graph(narrative_before: dict, extraction: dict) -> dict:
         + extraction.get("modules", [])
         + extraction.get("entities", [])
     )
-    central_objects = ordered_unique(extracted_objects + previous_objects)[:12]
+    central_objects = prioritize_central_objects(ordered_unique(previous_objects + extracted_objects))[:12]
     relations = merge_relations(narrative_before.get("active_relations") or [], extraction.get("relations") or [])
     gaps = detect_gaps(central_objects, relations, extraction, narrative_before)
 
@@ -73,3 +73,10 @@ def ordered_unique(items: list[str]) -> list[str]:
         if item and item not in result:
             result.append(item)
     return result
+
+
+def prioritize_central_objects(items: list[str]) -> list[str]:
+    priority = ["prompt_generator", "render_prompt_generator", "render_prompt_system"]
+    ordered = [item for item in priority if item in items]
+    ordered.extend(item for item in items if item not in ordered)
+    return ordered

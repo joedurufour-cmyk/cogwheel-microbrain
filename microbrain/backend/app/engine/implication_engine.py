@@ -1,7 +1,7 @@
 def infer_implications(narrative_model: dict, collision: dict, intent: dict) -> dict:
     implications = []
     risks = []
-    next_best_move = "define system objective"
+    next_best_move = next_move_from_gap(narrative_model.get("blocking_gap")) or "define system objective"
 
     if collision["type"] == "scope_explosion":
         implications.append("diagnostics may overwhelm normal users")
@@ -37,3 +37,13 @@ def infer_implications(narrative_model: dict, collision: dict, intent: dict) -> 
         risks.append(inferred_risk)
 
     return {"implications": implications, "risks": risks, "next_best_move": next_best_move}
+
+
+def next_move_from_gap(blocking_gap: str | None) -> str | None:
+    if blocking_gap == "missing_io_contract":
+        return "definir contrato de entrada"
+    if blocking_gap == "missing_output_contract":
+        return "definir contrato de salida"
+    if blocking_gap == "missing_domain_parameters":
+        return "confirmar parametros de dominio"
+    return None

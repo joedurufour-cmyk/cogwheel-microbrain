@@ -132,6 +132,21 @@ def test_resolve_output_contract_advances_to_domain_parameters():
     assert third["narrative"]["blocking_gap"] == "missing_domain_parameters"
 
 
+def test_negative_prompt_does_not_replace_prompt_generator_as_central_object():
+    first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
+    second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])
+    third = run_domain_turn(
+        "El output debe ser prompt final, negative prompt y parámetros --ar --s --v 8.1",
+        second["narrative"],
+        second["domain_state"],
+    )
+    collision = {"exists": False, "type": None, "severity": 0, "evidence": []}
+    implications = infer_implications(third["narrative"], collision, {"explicit": None})
+    assert third["narrative"]["central_objects"][0] == "prompt_generator"
+    assert implications["next_best_move"] == "confirmar parametros de dominio"
+    assert implications["next_best_move"] != "define system objective"
+
+
 def test_anticipate_midjourney_domain_parameters():
     first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
     second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])

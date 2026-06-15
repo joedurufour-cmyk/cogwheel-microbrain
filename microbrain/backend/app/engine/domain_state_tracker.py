@@ -82,6 +82,8 @@ def persist_domain_state(db: DbSession, session_id: int, domain_state: dict) -> 
 
 
 def next_action_prompt(gap_resolution: dict) -> str:
+    if gap_resolution.get("blocking_gap") == "missing_io_contract":
+        return "definir contrato de entrada"
     if gap_resolution.get("blocking_gap") == "missing_output_contract":
         return "definir contrato de salida"
     if gap_resolution.get("blocking_gap") == "missing_domain_parameters":
@@ -97,4 +99,3 @@ def ordered_unique(items: list[str]) -> list[str]:
         if item and item not in result:
             result.append(item)
     return result
-
