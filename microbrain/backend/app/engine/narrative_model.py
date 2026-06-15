@@ -1,7 +1,7 @@
 from app.engine.kb import has_any, unique
 
 
-def update_narrative_model(narrative_before: dict, segments: list[dict], raw_input: str = "") -> dict:
+def update_narrative_model(narrative_before: dict, segments: list[dict], raw_input: str = "", object_frame: dict | None = None) -> dict:
     text = raw_input or " ".join(segment["text"] for segment in segments)
     stated_goal = first_role(segments, "objective")
     stated_problem = first_role(segments, "problem")
@@ -13,10 +13,18 @@ def update_narrative_model(narrative_before: dict, segments: list[dict], raw_inp
     architecture = unique((narrative_before.get("current_architecture") or []) + infer_architecture_terms(text))
     risks = unique((narrative_before.get("current_risks") or []) + infer_risks(text))
     loops = unique((narrative_before.get("open_loops") or []) + infer_open_loops(text))
+    object_frame = object_frame or {}
+    central_objects = object_frame.get("central_objects") or narrative_before.get("central_objects") or []
+    active_relations = object_frame.get("active_relations") or narrative_before.get("active_relations") or []
+    blocking_gap = object_frame.get("blocking_gap") or narrative_before.get("blocking_gap")
 
     return {
-        "objective": objective,
-        "active_problem": active_problem,
+        "objective": infer_objective_from_objects(text, central_objects) or objective,
+        "active_problem": active_problem or infer_problem_from_gap(blocking_gap),
+        "central_objects": central_objects,
+        "active_relations": active_relations,
+        "blocking_gap": blocking_gap,
+        "object_graph": object_frame.get("graph_json", {}),
         "current_hypothesis": infer_hypothesis(text) or narrative_before.get("current_hypothesis"),
         "current_architecture": architecture[-12:],
         "current_risks": risks[-12:],
@@ -39,6 +47,8 @@ def first_role(segments: list[dict], role: str) -> str | None:
 
 
 def infer_objective(text: str, stated_goal: str | None) -> str | None:
+    if has_any(text, ["constructor de prompts", "generador de prompts", "prompt generator", "prompts para renders"]):
+        return "construir un generador de prompts para renders"
     if has_any(text, ["micro cerebro", "motor conversador"]):
         return "construir MicroBrain"
     if has_any(text, ["sistemas verticales"]):
@@ -46,6 +56,18 @@ def infer_objective(text: str, stated_goal: str | None) -> str | None:
     if has_any(text, ["codigo", "backend", "frontend"]):
         return "llevar Cogwheel a implementacion full stack"
     return stated_goal
+
+
+def infer_objective_from_objects(text: str, central_objects: list[str]) -> str | None:
+    if "prompt_generator" in central_objects and has_any(text, ["render", "renders", "midjourney"]):
+        return "construir un generador de prompts para renders"
+    return None
+
+
+def infer_problem_from_gap(blocking_gap: str | None) -> str | None:
+    if blocking_gap == "missing_io_contract":
+        return "falta contrato input/output del objeto central"
+    return None
 
 
 def infer_problem(text: str, stated_problem: str | None) -> str | None:

@@ -39,6 +39,8 @@ def export_session(session_id: int, db: DbSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="session_not_found")
     turns = db.query(models.Turn).filter(models.Turn.session_id == session_id).order_by(models.Turn.id).all()
     collisions = db.query(models.Collision).filter(models.Collision.session_id == session_id).all()
+    objects = db.query(models.DomainObject).filter(models.DomainObject.session_id == session_id).all()
+    relations = db.query(models.ObjectRelation).filter(models.ObjectRelation.session_id == session_id).all()
     return {
         "session": {"id": session.id, "title": session.title},
         "narrative": load_narrative(db, session_id),
@@ -47,4 +49,27 @@ def export_session(session_id: int, db: DbSession = Depends(get_db)):
             {"type": item.collision_type, "severity": item.severity, "evidence_json": item.evidence_json}
             for item in collisions
         ],
+        "object_graph": {
+            "objects": [
+                {
+                    "canonical_name": item.canonical_name,
+                    "object_type": item.object_type,
+                    "aliases_json": item.aliases_json,
+                    "properties_json": item.properties_json,
+                }
+                for item in objects
+            ],
+            "relations": [
+                {
+                    "subject": item.subject,
+                    "predicate": item.predicate,
+                    "object": item.object,
+                    "confidence": item.confidence,
+                    "source_turn_id": item.source_turn_id,
+                    "valid_from": item.valid_from,
+                    "valid_to": item.valid_to,
+                }
+                for item in relations
+            ],
+        },
     }

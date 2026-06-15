@@ -38,6 +38,26 @@ export default function DevDrawer({ apiBase, sessionId, open, onClose, narrative
         <pre>{JSON.stringify(lastTurn?.implication_engine || {}, null, 2)}</pre>
       </details>
       <details>
+        <summary>Extracted Objects</summary>
+        <pre>{JSON.stringify(lastTurn?.object_extraction || {}, null, 2)}</pre>
+      </details>
+      <details>
+        <summary>Relation Triples</summary>
+        <pre>{JSON.stringify(lastTurn?.relationship_graph?.active_relations || [], null, 2)}</pre>
+      </details>
+      <details>
+        <summary>Canonical Aliases</summary>
+        <pre>{JSON.stringify(lastTurn?.object_extraction?.aliases || {}, null, 2)}</pre>
+      </details>
+      <details>
+        <summary>Gaps</summary>
+        <pre>{JSON.stringify(lastTurn?.relationship_graph?.gaps || [], null, 2)}</pre>
+      </details>
+      <details>
+        <summary>Graph JSON</summary>
+        <pre>{JSON.stringify(lastTurn?.relationship_graph?.graph_json || narrative?.object_graph || {}, null, 2)}</pre>
+      </details>
+      <details>
         <summary>Raw JSON</summary>
         <pre>{JSON.stringify(lastTurn || {}, null, 2)}</pre>
       </details>

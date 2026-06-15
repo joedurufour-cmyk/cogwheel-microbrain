@@ -53,6 +53,16 @@ CONCEPTUAL_BASE = [
 ]
 
 TEST_INPUTS = [
+    "Constructor de prompts para renders",
+    "Prompt render generator",
+    "Quiero crear un motor que transforme ideas en prompts Midjourney V7",
+    "El generador debe tener plantillas, variables y salida final",
+    "No quiero chatbot generico, quiero sistema de prompts para renders",
+    "Falta definir que entra y que sale",
+    "El backend guarda memoria narrativa y el frontend solo muestra foco",
+    "Netlify despliega frontend pero FastAPI maneja memoria",
+    "El prompt generator depende de una KB de estilos",
+    "Cambiemos el output: ahora debe producir prompt, negative prompt y parametros",
     "quiero construir un micro cerebro conversador",
     "esto no mantiene el hilo",
     "no es sandbox, debe ser reconstruible",

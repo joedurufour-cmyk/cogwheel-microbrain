@@ -23,12 +23,14 @@ def test_session_turn_report_export_flow():
 
     narrative = client.get(f"/sessions/{session_id}/narrative").json()
     assert narrative["objective"]
+    assert "central_objects" in narrative
 
     report = client.get(f"/turns/{turn['id']}/report").json()
     assert report["answer_given"] == turn["answer"]
 
     exported = client.get(f"/sessions/{session_id}/export").json()
     assert exported["turns"]
+    assert "object_graph" in exported
 
 
 def test_tests_endpoint():

@@ -1,6 +1,7 @@
 import os
 
 from sqlalchemy import create_engine
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
@@ -28,3 +29,21 @@ def init_db():
     from app import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    ensure_lightweight_migrations()
+
+
+def ensure_lightweight_migrations() -> None:
+    inspector = inspect(engine)
+    if "narrative_states" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("narrative_states")}
+    additions = {
+        "central_objects_json": "TEXT DEFAULT '[]'",
+        "active_relations_json": "TEXT DEFAULT '[]'",
+        "blocking_gap": "TEXT",
+    }
+    with engine.begin() as connection:
+        for column, ddl_type in additions.items():
+            if column not in columns:
+                connection.execute(text(f"ALTER TABLE narrative_states ADD COLUMN {column} {ddl_type}"))

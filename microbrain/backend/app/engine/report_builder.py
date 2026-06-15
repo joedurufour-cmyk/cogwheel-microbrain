@@ -9,6 +9,8 @@ def build_report(
     implications: dict,
     response_plan: dict,
     answer: str,
+    object_extraction: dict | None = None,
+    relationship_graph: dict | None = None,
 ) -> dict:
     return {
         "what_i_detected": [
@@ -22,6 +24,8 @@ def build_report(
         "narrative_after": narrative_after,
         "collisions_found": [collision] if collision.get("exists") else [],
         "implication_used": implications.get("implications", []),
+        "object_extraction": object_extraction or {},
+        "relationship_graph": relationship_graph or {},
         "response_plan": response_plan,
         "answer_given": answer,
     }

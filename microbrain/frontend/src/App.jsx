@@ -10,6 +10,10 @@ const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? "http:/
 const LOCAL_NARRATIVE = {
   objective: null,
   active_problem: null,
+  central_objects: [],
+  active_relations: [],
+  blocking_gap: null,
+  object_graph: { objects: [], relations: [], gaps: [] },
   current_hypothesis: null,
   current_architecture: [],
   current_risks: [],
@@ -24,6 +28,7 @@ function inferLocalTurn(rawInput, previousNarrative = LOCAL_NARRATIVE) {
   const isValidation = /valid|probar|test|funciona|sirve|medir/.test(text);
   const isBroken = /no|falta|error|fall|jodido|blanco|problema|bloque/.test(text);
   const isScope = /y|adem[aá]s|todo|par[aá]metros|reordene|generador/.test(text) && rawInput.length > 80;
+  const hasPromptObject = /prompt|midjourney|render/.test(text);
 
   const objective =
     previousNarrative?.objective ||
@@ -44,12 +49,35 @@ function inferLocalTurn(rawInput, previousNarrative = LOCAL_NARRATIVE) {
     ? "congelar el contrato de entrada/salida antes de agregar mas funciones"
     : isValidation
       ? "definir casos de prueba medibles"
-      : "formular el objetivo en una frase verificable";
+    : "formular el objetivo en una frase verificable";
+  const centralObjects = hasPromptObject ? ["prompt_generator"] : previousNarrative?.central_objects || [];
+  const activeRelations = hasPromptObject
+    ? [
+        {
+          subject: "prompt_generator",
+          predicate: "generates",
+          object: "render_prompts",
+          confidence: 0.72,
+          source_turn_id: "local",
+          valid_from: "local",
+          valid_to: null
+        }
+      ]
+    : previousNarrative?.active_relations || [];
+  const blockingGap = hasPromptObject ? "missing_io_contract" : previousNarrative?.blocking_gap || null;
 
   const narrative = {
     ...previousNarrative,
     objective,
     active_problem: activeProblem,
+    central_objects: centralObjects,
+    active_relations: activeRelations,
+    blocking_gap: blockingGap,
+    object_graph: {
+      objects: centralObjects,
+      relations: activeRelations,
+      gaps: blockingGap ? [{ type: blockingGap, blocking: true }] : []
+    },
     current_risks: Array.from(new Set([...(previousNarrative?.current_risks || []), collisionType])),
     open_loops: Array.from(new Set([nextBestMove, ...(previousNarrative?.open_loops || [])])).slice(0, 5)
   };
@@ -80,6 +108,22 @@ function inferLocalTurn(rawInput, previousNarrative = LOCAL_NARRATIVE) {
       implications: ["el sistema debe responder aun sin completar infraestructura externa"],
       risks: [collisionType],
       next_best_move: nextBestMove
+    },
+    object_extraction: {
+      products: centralObjects,
+      relations: activeRelations,
+      aliases: hasPromptObject ? { prompt_generator: ["prompt"] } : {}
+    },
+    relationship_graph: {
+      central_objects: centralObjects,
+      active_relations: activeRelations,
+      gaps: blockingGap ? [{ type: blockingGap, blocking: true }] : [],
+      blocking_gap: blockingGap,
+      graph_json: {
+        objects: centralObjects,
+        relations: activeRelations,
+        gaps: blockingGap ? [{ type: blockingGap, blocking: true }] : []
+      }
     },
     response_plan: {
       move: isBroken ? "correct" : isValidation ? "test" : "decompose",
