@@ -1,3 +1,6 @@
+import json
+
+
 def render_answer(
     response_plan: dict,
     narrative_model: dict,
@@ -5,12 +8,14 @@ def render_answer(
     collision: dict,
     gap_resolution: dict | None = None,
     domain_state: dict | None = None,
+    compiled_domain: dict | None = None,
 ) -> str:
     if not response_plan:
         raise Exception("NO_RESPONSE_PLAN")
 
     gap_resolution = gap_resolution or {}
     domain_state = domain_state or {}
+    compiled_domain = compiled_domain or {}
     objective = narrative_model.get("objective") or "no congelado"
     problem = narrative_model.get("active_problem") or "falta contexto operativo"
     risk = (implications.get("risks") or narrative_model.get("current_risks") or ["deriva de sistema"])[0]
@@ -63,13 +68,11 @@ def render_answer(
 
     if "missing_domain_parameters" in gap_resolution.get("resolved_gaps", []):
         parameters = domain_state.get("domain_parameters") or {}
-        return "\n".join(
+        lines = ["Parametros de dominio actualizados:"]
+        for key, value in parameters.items():
+            lines.append(f"- {key}: {value}")
+        lines.extend(
             [
-                "Parametros de dominio actualizados:",
-                f"- aspect ratio: {parameters.get('aspect_ratio') or 'pendiente'}",
-                f"- stylize: {parameters.get('stylize') if parameters.get('stylize') is not None else 'pendiente'}",
-                f"- chaos: {parameters.get('chaos') if parameters.get('chaos') is not None else 'pendiente'}",
-                f"- seed: {parameters.get('seed') if parameters.get('seed') is not None else 'pendiente'}",
                 "",
                 "Ya no voy a volver a pedir ese dato.",
                 "",
@@ -79,6 +82,17 @@ def render_answer(
                 "EXECUTE_DOMAIN_COMPILER",
             ]
         )
+        if compiled_domain.get("status") == "compiled":
+            lines.extend(
+                [
+                    "",
+                    "Sistema compilado:",
+                    json.dumps(compiled_domain.get("final_compiled_system"), ensure_ascii=False, indent=2),
+                ]
+            )
+        elif compiled_domain.get("status") == "validation_failed":
+            lines.extend(["", "Validacion de dominio pendiente:", str(compiled_domain.get("validation_errors"))])
+        return "\n".join(lines)
 
     if central_objects:
         central = central_objects[0]

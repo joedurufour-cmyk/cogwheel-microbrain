@@ -6,6 +6,7 @@ from app import models
 from app.engine.answer_renderer import render_answer
 from app.engine.collision_engine import detect_collision
 from app.engine.dialogue_state_tracker import update_narrative_with_dialogue_state
+from app.engine.domain_compiler import domain_compiler_node
 from app.engine.domain_contract_router import detect_domain, load_domain_contract
 from app.engine.domain_state_tracker import (
     detect_anticipation_gaps,
@@ -67,10 +68,19 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
     )
     collision = detect_collision(narrative_before, narrative_model, mental_model, intent)
     implications = infer_implications(narrative_model, collision, intent)
+    compiled_domain = domain_compiler_node(narrative_model, updated_domain_state, domain_contract)
     response_plan = build_response_plan(intent, collision, implications)
     if not response_plan:
         raise Exception("NO_RESPONSE_PLAN")
-    answer = render_answer(response_plan, narrative_model, implications, collision, gap_resolution, updated_domain_state)
+    answer = render_answer(
+        response_plan,
+        narrative_model,
+        implications,
+        collision,
+        gap_resolution,
+        updated_domain_state,
+        compiled_domain,
+    )
 
     turn = models.Turn(session_id=session_id, raw_input=raw_input, answer=answer)
     db.add(turn)
@@ -94,6 +104,7 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         updated_domain_state,
         domain_contract.model_dump(),
         anticipation,
+        compiled_domain,
     )
 
     persist_narrative(db, session_id, narrative_model)
@@ -130,6 +141,7 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         "domain_state": updated_domain_state,
         "active_domain_contract": domain_contract.model_dump(),
         "anticipation": anticipation,
+        "compiled_domain": compiled_domain,
         "report": report,
     }
 

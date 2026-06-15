@@ -15,6 +15,7 @@ def build_report(
     domain_state: dict | None = None,
     active_domain_contract: dict | None = None,
     anticipation: dict | None = None,
+    compiled_domain: dict | None = None,
 ) -> dict:
     return {
         "what_i_detected": [
@@ -34,6 +35,7 @@ def build_report(
         "domain_state": domain_state or {},
         "active_domain_contract": active_domain_contract or {},
         "anticipation_gaps": (anticipation or {}).get("anticipation_gaps", []),
+        "compiled_domain": compiled_domain or {},
         "response_plan": response_plan,
         "answer_given": answer,
     }

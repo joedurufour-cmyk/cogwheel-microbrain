@@ -1,6 +1,7 @@
 from app.engine.answer_renderer import render_answer
 from app.engine.collision_engine import detect_collision
 from app.engine.dialogue_state_tracker import update_narrative_with_dialogue_state
+from app.engine.domain_compiler import domain_compiler_node
 from app.engine.domain_contract_router import detect_domain, load_domain_contract
 from app.engine.domain_state_tracker import detect_anticipation_gaps, empty_domain_state, update_domain_state
 from app.engine.gap_resolution_engine import resolve_gaps
@@ -167,6 +168,11 @@ def test_resolve_domain_parameters_moves_to_prompt_generation():
     assert fourth["narrative"]["active_problem"] is None
     assert fourth["domain_state"]["next_action_prompt"] == "EXECUTE_DOMAIN_COMPILER"
     assert implications["next_best_move"] == "EXECUTE_DOMAIN_COMPILER"
+    compiled = domain_compiler_node(fourth["narrative"], fourth["domain_state"], load_domain_contract("midjourney_v8_1_core"))
+    assert compiled["status"] == "compiled"
+    assert compiled["schema_name"] == "midjourney_v8_1_core_Schema"
+    assert "--ar 5:11" in compiled["final_compiled_system"]["compiled"]
+    assert "--s 120" in compiled["final_compiled_system"]["compiled"]
 
 
 def test_universal_state_machine_executes_non_midjourney_domain():
@@ -196,10 +202,17 @@ def test_universal_state_machine_executes_non_midjourney_domain():
     )
     collision = {"exists": False, "type": None, "severity": 0, "evidence": []}
     implications = infer_implications(updated, collision, {"explicit": None})
+    compiled = domain_compiler_node(
+        updated,
+        {**domain_state, "next_action_prompt": "EXECUTE_DOMAIN_COMPILER"},
+        load_domain_contract("system_design_navigation"),
+    )
     assert updated["phase"] == "EXECUTION"
     assert updated["blocking_gap"] is None
     assert updated["active_problem"] is None
     assert implications["next_best_move"] == "EXECUTE_DOMAIN_COMPILER"
+    assert compiled["status"] == "compiled"
+    assert compiled["validated_data"] == {"penalty_clause": "required", "deposit_months": 2}
 
 
 def test_anticipate_midjourney_domain_parameters():
