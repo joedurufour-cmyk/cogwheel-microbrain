@@ -1,11 +1,11 @@
 from copy import deepcopy
 
 
-EMPTY_VALUES = {None, "", "none", "None", "NONE"}
+EMPTY_VALUES = {None, "", "none", "None", "NONE", "no congelado", "No congelado", "NO CONGELADO"}
 
 
 def keep_if_empty(old_value, new_value):
-    if new_value in EMPTY_VALUES:
+    if emptyish(new_value):
         return old_value
     return new_value
 
@@ -13,7 +13,7 @@ def keep_if_empty(old_value, new_value):
 def merge_dicts(old_value: dict | None, new_value: dict | None) -> dict:
     merged = deepcopy(old_value or {})
     for key, value in (new_value or {}).items():
-        if value not in EMPTY_VALUES:
+        if not emptyish(value):
             merged[key] = value
     return merged
 
@@ -21,7 +21,7 @@ def merge_dicts(old_value: dict | None, new_value: dict | None) -> dict:
 def append_unique(old_value: list | None, new_value: list | None) -> list:
     merged = list(old_value or [])
     for item in new_value or []:
-        if item not in EMPTY_VALUES and item not in merged:
+        if not emptyish(item) and item not in merged:
             merged.append(item)
     return merged
 
@@ -38,3 +38,16 @@ def reduce_universal_state(previous: dict, update: dict) -> dict:
         "next_move": keep_if_empty(previous.get("next_move"), update.get("next_move")),
     }
 
+
+def emptyish(value) -> bool:
+    if isinstance(value, str) and value.strip() in EMPTY_VALUES:
+        return True
+    if isinstance(value, list) and not value:
+        return True
+    if isinstance(value, dict) and not value:
+        return True
+    if isinstance(value, (list, dict, set)):
+        return False
+    if value in EMPTY_VALUES:
+        return True
+    return False

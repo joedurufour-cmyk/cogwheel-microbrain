@@ -24,6 +24,7 @@ from app.engine.relationship_graph import build_relationship_graph
 from app.engine.report_builder import build_report
 from app.engine.response_planner import build_response_plan
 from app.engine.segmenter import segment
+from app.engine.state_reducers import append_unique, keep_if_empty, merge_dicts
 
 
 def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
@@ -180,22 +181,29 @@ def persist_narrative(db: DbSession, session_id: int, narrative: dict) -> None:
     if not state:
         state = models.NarrativeState(session_id=session_id)
         db.add(state)
-    state.objective = narrative.get("objective")
-    state.active_problem = narrative.get("active_problem")
-    state.central_objects_json = json.dumps(narrative.get("central_objects", []))
-    state.active_relations_json = json.dumps(narrative.get("active_relations", []))
+    previous_central_objects = json.loads(state.central_objects_json or "[]")
+    previous_active_relations = json.loads(state.active_relations_json or "[]")
+    previous_input_contract = json.loads(state.input_contract_json or "{}")
+    previous_output_contract = json.loads(state.output_contract_json or "{}")
+    previous_resolved_gaps = json.loads(state.resolved_gaps_json or "[]")
+    previous_anticipation_gaps = json.loads(state.anticipation_gaps_json or "[]")
+
+    state.objective = keep_if_empty(state.objective, narrative.get("objective"))
+    state.active_problem = keep_if_empty(state.active_problem, narrative.get("active_problem"))
+    state.central_objects_json = json.dumps(append_unique(previous_central_objects, narrative.get("central_objects", [])))
+    state.active_relations_json = json.dumps(merge_relations_for_state(previous_active_relations, narrative.get("active_relations", [])))
     state.blocking_gap = narrative.get("blocking_gap")
-    state.current_hypothesis = narrative.get("current_hypothesis")
-    state.current_architecture_json = json.dumps(narrative.get("current_architecture", []))
-    state.current_risks_json = json.dumps(narrative.get("current_risks", []))
+    state.current_hypothesis = keep_if_empty(state.current_hypothesis, narrative.get("current_hypothesis"))
+    state.current_architecture_json = json.dumps(append_unique(json.loads(state.current_architecture_json or "[]"), narrative.get("current_architecture", [])))
+    state.current_risks_json = json.dumps(append_unique(json.loads(state.current_risks_json or "[]"), narrative.get("current_risks", [])))
     state.open_loops_json = json.dumps(narrative.get("open_loops", []))
-    state.decisions_json = json.dumps(narrative.get("decisions", []))
-    state.validations_json = json.dumps(narrative.get("validations", []))
-    state.input_contract_json = json.dumps(narrative.get("input_contract", {}))
-    state.output_contract_json = json.dumps(narrative.get("output_contract", {}))
-    state.resolved_gaps_json = json.dumps(narrative.get("resolved_gaps", []))
-    state.active_domain = narrative.get("active_domain")
-    state.anticipation_gaps_json = json.dumps(narrative.get("anticipation_gaps", []))
+    state.decisions_json = json.dumps(append_unique(json.loads(state.decisions_json or "[]"), narrative.get("decisions", [])))
+    state.validations_json = json.dumps(append_unique(json.loads(state.validations_json or "[]"), narrative.get("validations", [])))
+    state.input_contract_json = json.dumps(merge_dicts(previous_input_contract, narrative.get("input_contract", {})))
+    state.output_contract_json = json.dumps(merge_dicts(previous_output_contract, narrative.get("output_contract", {})))
+    state.resolved_gaps_json = json.dumps(append_unique(previous_resolved_gaps, narrative.get("resolved_gaps", [])))
+    state.active_domain = keep_if_empty(state.active_domain, narrative.get("active_domain"))
+    state.anticipation_gaps_json = json.dumps(append_unique(previous_anticipation_gaps, narrative.get("anticipation_gaps", [])))
 
 
 def empty_narrative() -> dict:
@@ -286,3 +294,14 @@ def apply_turn_id_to_relations(turn_id: str, extraction: dict, graph: dict, narr
         for relation in relation_list:
             relation["source_turn_id"] = relation.get("source_turn_id") or turn_id
             relation["valid_from"] = relation.get("valid_from") or turn_id
+
+
+def merge_relations_for_state(previous: list[dict], current: list[dict]) -> list[dict]:
+    merged = []
+    seen = set()
+    for relation in previous + current:
+        key = (relation.get("subject"), relation.get("predicate"), relation.get("object"))
+        if key not in seen:
+            seen.add(key)
+            merged.append(relation)
+    return merged

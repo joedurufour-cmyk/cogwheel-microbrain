@@ -1,5 +1,7 @@
+import os
 from typing import Any
 
+import httpx
 from pydantic import ValidationError
 
 from app.engine.domain_schema_registry import inject_domain_schema
@@ -163,6 +165,30 @@ def extract_base_prompt(narrative_state: dict) -> str:
 
 
 def execute_web_search_stub(parameters: dict) -> dict:
+    api_key = os.getenv("TAVILY_API_KEY")
+    query = " ".join(str(value) for value in parameters.values() if value is not None).strip()
+    if api_key and query:
+        try:
+            response = httpx.post(
+                "https://api.tavily.com/search",
+                json={"api_key": api_key, "query": query, "search_depth": "basic", "max_results": 3},
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return {
+                "status": "ok",
+                "results": [
+                    {
+                        "title": item.get("title"),
+                        "url": item.get("url"),
+                        "content": item.get("content"),
+                    }
+                    for item in data.get("results", [])
+                ],
+            }
+        except Exception as error:
+            return {"status": "error", "reason": str(error), "parameters_seen": sorted(parameters.keys())}
     return {
         "status": "not_configured",
         "reason": "web search hook available; no production provider configured",

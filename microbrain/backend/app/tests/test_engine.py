@@ -15,6 +15,7 @@ from app.engine.process import empty_narrative
 from app.engine.relationship_graph import build_relationship_graph
 from app.engine.response_planner import build_response_plan
 from app.engine.segmenter import segment
+from app.engine.state_reducers import keep_if_empty, merge_dicts
 
 
 def run_engine(raw_input: str, before=None):
@@ -217,6 +218,15 @@ def test_universal_state_machine_executes_non_midjourney_domain():
     assert compiled["output_envelope"]["artifact_type"] == "document_package"
     assert compiled["output_envelope"]["next_runtime_action"] == "EXECUTE_OUTPUT_RENDERER"
     assert compiled["validated_data"] == {"penalty_clause": "required", "deposit_months": 2}
+
+
+def test_state_reducers_preserve_historical_values_against_none_updates():
+    assert keep_if_empty("construir un generador de prompts", "none") == "construir un generador de prompts"
+    assert keep_if_empty("construir un generador de prompts", "no congelado") == "construir un generador de prompts"
+    assert merge_dicts(
+        {"input": ["free_text"], "output": ["positive_prompt"]},
+        {"input": "none", "parameters": ["--ar 5:11"]},
+    ) == {"input": ["free_text"], "output": ["positive_prompt"], "parameters": ["--ar 5:11"]}
 
 
 def test_anticipate_midjourney_domain_parameters():
