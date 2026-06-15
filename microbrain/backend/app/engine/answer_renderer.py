@@ -69,36 +69,18 @@ def render_answer(
                 f"Dominio activo detectado: {format_domain(active_domain)}.",
                 "",
                 "Siguiente bloqueo:",
-                "confirmar parametros de dominio: aspect ratio, stylize, chaos/seed si aplican y version Midjourney.",
+                "confirmar parametros de dominio: aspect ratio, stylize, chaos/seed si aplican, version y cualquier parametro especifico del dominio.",
             ]
         )
 
     if "missing_domain_parameters" in gap_resolution.get("resolved_gaps", []):
+        if compiled_domain.get("status") == "compiled":
+            return _render_compiled_output(compiled_domain)
         parameters = domain_state.get("domain_parameters") or {}
         lines = ["Parametros de dominio actualizados:"]
         for key, value in parameters.items():
             lines.append(f"- {key}: {value}")
-        lines.extend(
-            [
-                "",
-                "Ya no voy a volver a pedir ese dato.",
-                "",
-                f"Dominio activo detectado: {format_domain(active_domain)}.",
-                "",
-                "Siguiente movimiento:",
-                "EXECUTE_DOMAIN_COMPILER",
-            ]
-        )
-        if compiled_domain.get("status") == "compiled":
-            lines.extend(
-                [
-                    "",
-                    "Output envelope:",
-                    json.dumps(compiled_domain.get("output_envelope"), ensure_ascii=False, indent=2),
-                ]
-            )
-        elif compiled_domain.get("status") == "validation_failed":
-            lines.extend(["", "Validacion de dominio pendiente:", str(compiled_domain.get("validation_errors"))])
+        lines += ["", "Ya no voy a volver a pedir ese dato.", "", "Siguiente movimiento:", "EXECUTE_DOMAIN_COMPILER"]
         return "\n".join(lines)
 
     if central_objects:
@@ -142,7 +124,7 @@ def render_answer(
                     f"Dominio activo detectado: {format_domain(active_domain)}.",
                     "",
                     "Siguiente movimiento:",
-                    "Fijar output contract: solo prompt final, o prompt + negative prompt + parametros?",
+                    "Fijar output contract: ¿qué tipo de output quieres? → stack de app / código Python / prompt avanzado / texto / CSV",
                 ]
             )
         elif blocking_gap == "missing_domain_parameters":
@@ -188,3 +170,28 @@ def format_domain(domain_id: str | None) -> str:
     if domain_id:
         return domain_id
     return "ninguno"
+
+
+def _render_compiled_output(compiled_domain: dict) -> str:
+    output_type = compiled_domain.get("output_type") or "text"
+    envelope = compiled_domain.get("output_envelope") or {}
+    deliverables = envelope.get("deliverables") or []
+    preview = deliverables[0].get("compiled_preview") if deliverables else ""
+    objective = envelope.get("objective") or ""
+
+    label = {
+        "app_stack":       "Stack de App compilado",
+        "python_code":     "Código Python generado",
+        "advanced_prompt": "Prompt avanzado compilado",
+        "csv":             "CSV generado",
+        "text":            "Texto generado",
+    }.get(output_type, "Output compilado")
+
+    lines = [
+        f"# {label}",
+        f"**Objetivo:** {objective}",
+        "",
+    ]
+    if preview:
+        lines.append(preview)
+    return "\n".join(lines)
