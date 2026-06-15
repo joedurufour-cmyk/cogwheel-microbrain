@@ -147,6 +147,26 @@ def test_negative_prompt_does_not_replace_prompt_generator_as_central_object():
     assert implications["next_best_move"] != "define system objective"
 
 
+def test_resolve_domain_parameters_moves_to_prompt_generation():
+    first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
+    second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])
+    third = run_domain_turn(
+        "El output debe ser prompt final, negative prompt y parámetros --ar --s --v 8.1",
+        second["narrative"],
+        second["domain_state"],
+    )
+    fourth = run_domain_turn("Aspect ratio = 5:11, stylize 120 chaos 0 seed 0", third["narrative"], third["domain_state"])
+    collision = {"exists": False, "type": None, "severity": 0, "evidence": []}
+    implications = infer_implications(fourth["narrative"], collision, {"explicit": None})
+    assert "missing_domain_parameters" in fourth["domain_state"]["resolved_gaps"]
+    assert fourth["domain_state"]["domain_parameters"]["aspect_ratio"] == "5:11"
+    assert fourth["domain_state"]["domain_parameters"]["stylize"] == 120
+    assert fourth["domain_state"]["domain_parameters"]["chaos"] == 0
+    assert fourth["domain_state"]["domain_parameters"]["seed"] == 0
+    assert fourth["domain_state"]["next_action_prompt"] == "generar prompt final Midjourney"
+    assert implications["next_best_move"] == "generar prompt final Midjourney"
+
+
 def test_anticipate_midjourney_domain_parameters():
     first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
     second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])

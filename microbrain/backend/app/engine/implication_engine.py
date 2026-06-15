@@ -1,7 +1,7 @@
 def infer_implications(narrative_model: dict, collision: dict, intent: dict) -> dict:
     implications = []
     risks = []
-    next_best_move = next_move_from_gap(narrative_model.get("blocking_gap")) or "define system objective"
+    next_best_move = next_move_from_state(narrative_model) or "define system objective"
 
     if collision["type"] == "scope_explosion":
         implications.append("diagnostics may overwhelm normal users")
@@ -37,6 +37,20 @@ def infer_implications(narrative_model: dict, collision: dict, intent: dict) -> 
         risks.append(inferred_risk)
 
     return {"implications": implications, "risks": risks, "next_best_move": next_best_move}
+
+
+def next_move_from_state(narrative_model: dict) -> str | None:
+    blocking_gap = narrative_model.get("blocking_gap")
+    by_gap = next_move_from_gap(blocking_gap)
+    if by_gap:
+        return by_gap
+    resolved = set(narrative_model.get("resolved_gaps") or [])
+    active_domain = narrative_model.get("active_domain")
+    if active_domain == "midjourney_v8_1_core" and "missing_domain_parameters" in resolved:
+        return "generar prompt final Midjourney"
+    if narrative_model.get("input_contract") and narrative_model.get("output_contract"):
+        return "generar salida con el contrato definido"
+    return None
 
 
 def next_move_from_gap(blocking_gap: str | None) -> str | None:

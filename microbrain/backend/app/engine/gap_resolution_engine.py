@@ -151,17 +151,23 @@ def detect_output_includes(text: str) -> list[str]:
 
 def detect_domain_parameters(text: str) -> dict:
     parameters = {}
-    ar_match = re.search(r"--ar\s+([0-9]+:[0-9]+)", text)
+    ar_match = re.search(r"(?:--ar|aspect ratio|aspec ratio|ar)\s*(?:=|:)?\s*([0-9]+:[0-9]+)", text)
     if ar_match:
         parameters["aspect_ratio"] = ar_match.group(1)
-    s_match = re.search(r"--s\s+([0-9]+)", text)
+    s_match = re.search(r"(?:--s|stylize|s)\s*(?:=|:)?\s*([0-9]+)", text)
     if s_match:
         parameters["stylize"] = int(s_match.group(1))
     if "--v 8.1" in text or "v 8.1" in text:
         parameters["version"] = "8.1"
-    if "chaos" in text:
+    chaos_match = re.search(r"chaos\s*(?:=|:)?\s*([0-9]+)", text)
+    if chaos_match:
+        parameters["chaos"] = int(chaos_match.group(1))
+    elif "chaos" in text:
         parameters["chaos"] = None
-    if "seed" in text:
+    seed_match = re.search(r"seed\s*(?:=|:)?\s*([0-9]+)", text)
+    if seed_match:
+        parameters["seed"] = int(seed_match.group(1))
+    elif "seed" in text:
         parameters["seed"] = None
     return parameters
 

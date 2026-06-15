@@ -49,7 +49,7 @@ def update_domain_state(
         "domain_parameters": parameters,
         "resolved_gaps": resolved,
         "anticipation_gaps": domain_state_before.get("anticipation_gaps") or [],
-        "next_action_prompt": next_action_prompt(gap_resolution),
+        "next_action_prompt": next_action_prompt(gap_resolution, active_domain, resolved),
         "domain_confidence": confidence,
     }
 
@@ -81,15 +81,19 @@ def persist_domain_state(db: DbSession, session_id: int, domain_state: dict) -> 
     state.domain_confidence = domain_state.get("domain_confidence") or 0
 
 
-def next_action_prompt(gap_resolution: dict) -> str:
+def next_action_prompt(gap_resolution: dict, active_domain: str | None = None, resolved_gaps: list[str] | None = None) -> str:
     if gap_resolution.get("blocking_gap") == "missing_io_contract":
         return "definir contrato de entrada"
     if gap_resolution.get("blocking_gap") == "missing_output_contract":
         return "definir contrato de salida"
     if gap_resolution.get("blocking_gap") == "missing_domain_parameters":
         return "confirmar parametros de dominio"
+    if "missing_domain_parameters" in gap_resolution.get("resolved_gaps", []):
+        return "generar prompt final Midjourney"
     if gap_resolution.get("resolved_gaps"):
-        return "continuar al siguiente bloqueo"
+        return "continuar con la salida definida"
+    if active_domain == "midjourney_v8_1_core" and "missing_domain_parameters" in (resolved_gaps or []):
+        return "generar prompt final Midjourney"
     return ""
 
 

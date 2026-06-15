@@ -61,6 +61,25 @@ def render_answer(
             ]
         )
 
+    if "missing_domain_parameters" in gap_resolution.get("resolved_gaps", []):
+        parameters = domain_state.get("domain_parameters") or {}
+        return "\n".join(
+            [
+                "Parametros de dominio actualizados:",
+                f"- aspect ratio: {parameters.get('aspect_ratio') or 'pendiente'}",
+                f"- stylize: {parameters.get('stylize') if parameters.get('stylize') is not None else 'pendiente'}",
+                f"- chaos: {parameters.get('chaos') if parameters.get('chaos') is not None else 'pendiente'}",
+                f"- seed: {parameters.get('seed') if parameters.get('seed') is not None else 'pendiente'}",
+                "",
+                "Ya no voy a volver a pedir ese dato.",
+                "",
+                f"Dominio activo detectado: {format_domain(active_domain)}.",
+                "",
+                "Siguiente movimiento:",
+                "generar prompt final Midjourney con positive prompt, negative prompt y parametros.",
+            ]
+        )
+
     if central_objects:
         central = central_objects[0]
         key_relation = relations[0] if relations else None
