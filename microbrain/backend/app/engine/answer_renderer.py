@@ -9,6 +9,7 @@ def render_answer(
     gap_resolution: dict | None = None,
     domain_state: dict | None = None,
     compiled_domain: dict | None = None,
+    llm_dst: dict | None = None,
 ) -> str:
     if not response_plan:
         raise Exception("NO_RESPONSE_PLAN")
@@ -16,10 +17,16 @@ def render_answer(
     gap_resolution = gap_resolution or {}
     domain_state = domain_state or {}
     compiled_domain = compiled_domain or {}
+    llm_dst = llm_dst or {}
     objective = narrative_model.get("objective") or "no congelado"
     problem = narrative_model.get("active_problem") or "falta contexto operativo"
     risk = (implications.get("risks") or narrative_model.get("current_risks") or ["deriva de sistema"])[0]
-    next_move = implications.get("next_best_move") or "definir siguiente movimiento arquitectonico"
+    llm_next_move = llm_dst.get("next_move") or ""
+    next_move = (
+        llm_next_move
+        if llm_next_move and llm_next_move not in ("none", "None", "EXECUTE_DOMAIN_COMPILER")
+        else implications.get("next_best_move") or "definir siguiente movimiento arquitectonico"
+    )
     central_objects = narrative_model.get("central_objects") or []
     relations = narrative_model.get("active_relations") or []
     blocking_gap = narrative_model.get("blocking_gap")

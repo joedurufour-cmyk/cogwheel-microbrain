@@ -30,7 +30,8 @@ export default function CurrentFocus({ narrative, lastTurn, apiStatus }) {
         <div>
           <span>Next Move</span>
           <strong>
-            {lastTurn?.domain_state?.next_action_prompt ||
+            {lastTurn?.llm_dst?.next_move ||
+              lastTurn?.domain_state?.next_action_prompt ||
               lastTurn?.implication_engine?.next_best_move ||
               narrative?.open_loops?.[0] ||
               (narrative?.central_objects?.[0] ? "define object input/output contract" : "define system objective")}
