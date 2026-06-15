@@ -163,8 +163,10 @@ def test_resolve_domain_parameters_moves_to_prompt_generation():
     assert fourth["domain_state"]["domain_parameters"]["stylize"] == 120
     assert fourth["domain_state"]["domain_parameters"]["chaos"] == 0
     assert fourth["domain_state"]["domain_parameters"]["seed"] == 0
-    assert fourth["domain_state"]["next_action_prompt"] == "generar prompt final Midjourney"
-    assert implications["next_best_move"] == "generar prompt final Midjourney"
+    assert fourth["narrative"]["phase"] == "EXECUTION"
+    assert fourth["narrative"]["active_problem"] is None
+    assert fourth["domain_state"]["next_action_prompt"] == "COMPILE_DOMAIN_PROMPT"
+    assert implications["next_best_move"] == "COMPILE_DOMAIN_PROMPT"
 
 
 def test_anticipate_midjourney_domain_parameters():

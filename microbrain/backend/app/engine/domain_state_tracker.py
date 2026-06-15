@@ -89,11 +89,11 @@ def next_action_prompt(gap_resolution: dict, active_domain: str | None = None, r
     if gap_resolution.get("blocking_gap") == "missing_domain_parameters":
         return "confirmar parametros de dominio"
     if "missing_domain_parameters" in gap_resolution.get("resolved_gaps", []):
-        return "generar prompt final Midjourney"
+        return "COMPILE_DOMAIN_PROMPT"
     if gap_resolution.get("resolved_gaps"):
         return "continuar con la salida definida"
     if active_domain == "midjourney_v8_1_core" and "missing_domain_parameters" in (resolved_gaps or []):
-        return "generar prompt final Midjourney"
+        return "COMPILE_DOMAIN_PROMPT"
     return ""
 
 

@@ -76,7 +76,7 @@ def render_answer(
                 f"Dominio activo detectado: {format_domain(active_domain)}.",
                 "",
                 "Siguiente movimiento:",
-                "generar prompt final Midjourney con positive prompt, negative prompt y parametros.",
+                "COMPILE_DOMAIN_PROMPT",
             ]
         )
 

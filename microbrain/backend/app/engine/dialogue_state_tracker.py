@@ -28,6 +28,10 @@ def update_narrative_with_dialogue_state(
     updated["domain_state"] = domain_state
     updated["anticipation_gaps"] = anticipation.get("anticipation_gaps", [])
     updated["inferred_data"] = anticipation.get("inferred_data", [])
+    phase = infer_phase(updated, domain_state, resolved)
+    updated["phase"] = phase
+    if phase == "EXECUTION":
+        updated["active_problem"] = None
 
     if next_gap:
         updated["blocking_gap"] = next_gap
@@ -65,3 +69,18 @@ def infer_next_gap(narrative: dict, domain_state: dict, resolved: set[str]) -> s
     if active_domain == "midjourney_v8_1_core" and narrative.get("output_contract") and "missing_domain_parameters" not in resolved:
         return "missing_domain_parameters"
     return None
+
+
+def infer_phase(narrative: dict, domain_state: dict, resolved: set[str]) -> str:
+    central_objects = narrative.get("central_objects") or []
+    has_scope = bool(narrative.get("objective") and central_objects)
+    has_contract = bool(narrative.get("input_contract") and narrative.get("output_contract"))
+    active_domain = domain_state.get("active_domain") or narrative.get("active_domain")
+    domain_complete = active_domain == "midjourney_v8_1_core" and "missing_domain_parameters" in resolved
+    if has_scope and has_contract and domain_complete:
+        return "EXECUTION"
+    if has_scope and has_contract:
+        return "DOMAIN_INJECTION"
+    if has_scope:
+        return "CONTRACTING"
+    return "SCOPING"
