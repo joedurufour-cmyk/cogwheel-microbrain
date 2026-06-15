@@ -47,9 +47,9 @@ def next_move_from_state(narrative_model: dict) -> str | None:
     resolved = set(narrative_model.get("resolved_gaps") or [])
     active_domain = narrative_model.get("active_domain")
     if narrative_model.get("phase") == "EXECUTION":
-        return "COMPILE_DOMAIN_PROMPT"
-    if active_domain == "midjourney_v8_1_core" and "missing_domain_parameters" in resolved:
-        return "COMPILE_DOMAIN_PROMPT"
+        return "EXECUTE_DOMAIN_COMPILER"
+    if active_domain and active_domain != "system_design_navigation" and "missing_domain_parameters" in resolved:
+        return "EXECUTE_DOMAIN_COMPILER"
     if narrative_model.get("input_contract") and narrative_model.get("output_contract"):
         return "generar salida con el contrato definido"
     return None

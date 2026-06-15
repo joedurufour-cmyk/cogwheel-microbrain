@@ -165,8 +165,41 @@ def test_resolve_domain_parameters_moves_to_prompt_generation():
     assert fourth["domain_state"]["domain_parameters"]["seed"] == 0
     assert fourth["narrative"]["phase"] == "EXECUTION"
     assert fourth["narrative"]["active_problem"] is None
-    assert fourth["domain_state"]["next_action_prompt"] == "COMPILE_DOMAIN_PROMPT"
-    assert implications["next_best_move"] == "COMPILE_DOMAIN_PROMPT"
+    assert fourth["domain_state"]["next_action_prompt"] == "EXECUTE_DOMAIN_COMPILER"
+    assert implications["next_best_move"] == "EXECUTE_DOMAIN_COMPILER"
+
+
+def test_universal_state_machine_executes_non_midjourney_domain():
+    narrative = empty_narrative()
+    narrative.update(
+        {
+            "objective": "construir generador de contratos de alquiler",
+            "central_objects": ["contract_generator"],
+            "input_contract": {"mode": ["free_text"]},
+            "output_contract": {"includes": ["legal_contract", "clause_summary"]},
+            "active_domain": "legal_contracts_core",
+            "resolved_gaps": ["missing_io_contract", "missing_output_contract", "missing_domain_parameters"],
+        }
+    )
+    domain_state = {
+        **empty_domain_state(),
+        "active_domain": "legal_contracts_core",
+        "domain_parameters": {"penalty_clause": "required", "deposit_months": 2},
+        "resolved_gaps": ["missing_io_contract", "missing_output_contract", "missing_domain_parameters"],
+    }
+    updated = update_narrative_with_dialogue_state(
+        narrative,
+        narrative,
+        {"resolved_gaps": [], "blocking_gap": None},
+        {"anticipation_gaps": [], "inferred_data": []},
+        domain_state,
+    )
+    collision = {"exists": False, "type": None, "severity": 0, "evidence": []}
+    implications = infer_implications(updated, collision, {"explicit": None})
+    assert updated["phase"] == "EXECUTION"
+    assert updated["blocking_gap"] is None
+    assert updated["active_problem"] is None
+    assert implications["next_best_move"] == "EXECUTE_DOMAIN_COMPILER"
 
 
 def test_anticipate_midjourney_domain_parameters():

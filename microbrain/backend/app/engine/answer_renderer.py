@@ -76,7 +76,7 @@ def render_answer(
                 f"Dominio activo detectado: {format_domain(active_domain)}.",
                 "",
                 "Siguiente movimiento:",
-                "COMPILE_DOMAIN_PROMPT",
+                "EXECUTE_DOMAIN_COMPILER",
             ]
         )
 

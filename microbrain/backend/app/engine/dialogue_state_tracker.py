@@ -66,7 +66,7 @@ def infer_next_gap(narrative: dict, domain_state: dict, resolved: set[str]) -> s
         return "missing_io_contract"
     if narrative.get("input_contract") and not narrative.get("output_contract") and "missing_output_contract" not in resolved:
         return "missing_output_contract"
-    if active_domain == "midjourney_v8_1_core" and narrative.get("output_contract") and "missing_domain_parameters" not in resolved:
+    if active_domain and active_domain != "system_design_navigation" and narrative.get("output_contract") and "missing_domain_parameters" not in resolved:
         return "missing_domain_parameters"
     return None
 
@@ -76,7 +76,7 @@ def infer_phase(narrative: dict, domain_state: dict, resolved: set[str]) -> str:
     has_scope = bool(narrative.get("objective") and central_objects)
     has_contract = bool(narrative.get("input_contract") and narrative.get("output_contract"))
     active_domain = domain_state.get("active_domain") or narrative.get("active_domain")
-    domain_complete = active_domain == "midjourney_v8_1_core" and "missing_domain_parameters" in resolved
+    domain_complete = bool(active_domain and active_domain != "system_design_navigation" and "missing_domain_parameters" in resolved)
     if has_scope and has_contract and domain_complete:
         return "EXECUTION"
     if has_scope and has_contract:

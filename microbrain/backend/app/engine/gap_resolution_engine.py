@@ -55,7 +55,7 @@ def resolve_gaps(raw_input: str, narrative_state: dict, domain_state: dict, cont
     active_gap = (
         narrative_state.get("blocking_gap")
         or first_unresolved_loop(narrative_state, resolved_before)
-        or infer_active_gap(narrative_state, domain_state, resolved_before)
+        or infer_active_gap(narrative_state, domain_state, resolved_before, contract)
     )
     result = {
         "resolved_gaps": [],
@@ -99,7 +99,7 @@ def first_unresolved_loop(narrative_state: dict, resolved: set[str]) -> str | No
     return None
 
 
-def infer_active_gap(narrative_state: dict, domain_state: dict, resolved: set[str]) -> str | None:
+def infer_active_gap(narrative_state: dict, domain_state: dict, resolved: set[str], contract=None) -> str | None:
     central_objects = narrative_state.get("central_objects") or []
     prompt_like = any(item in central_objects for item in ["prompt_generator", "render_prompt_generator"])
     active_domain = domain_state.get("active_domain") or narrative_state.get("active_domain")
@@ -107,13 +107,28 @@ def infer_active_gap(narrative_state: dict, domain_state: dict, resolved: set[st
         return "missing_io_contract"
     if narrative_state.get("input_contract") and not narrative_state.get("output_contract") and "missing_output_contract" not in resolved:
         return "missing_output_contract"
-    if (
-        active_domain == "midjourney_v8_1_core"
-        and narrative_state.get("output_contract")
-        and "missing_domain_parameters" not in resolved
-    ):
+    if should_request_domain_parameters(active_domain, narrative_state, domain_state, resolved, contract):
         return "missing_domain_parameters"
     return None
+
+
+def should_request_domain_parameters(
+    active_domain: str | None,
+    narrative_state: dict,
+    domain_state: dict,
+    resolved: set[str],
+    contract=None,
+) -> bool:
+    if not active_domain or active_domain == "system_design_navigation":
+        return False
+    if not narrative_state.get("output_contract"):
+        return False
+    if "missing_domain_parameters" in resolved:
+        return False
+    if domain_state.get("domain_parameters"):
+        return False
+    mandatory_keys = set(getattr(contract, "mandatory_keys", []) or [])
+    return bool(mandatory_keys - {"input_mode", "output_format"})
 
 
 def has_resolution_terms(text: str, terms: list[str]) -> bool:
