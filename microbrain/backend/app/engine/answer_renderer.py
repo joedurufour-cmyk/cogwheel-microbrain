@@ -86,8 +86,8 @@ def render_answer(
             lines.extend(
                 [
                     "",
-                    "Sistema compilado:",
-                    json.dumps(compiled_domain.get("final_compiled_system"), ensure_ascii=False, indent=2),
+                    "Output envelope:",
+                    json.dumps(compiled_domain.get("output_envelope"), ensure_ascii=False, indent=2),
                 ]
             )
         elif compiled_domain.get("status") == "validation_failed":

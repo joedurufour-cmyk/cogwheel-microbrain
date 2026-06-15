@@ -15,7 +15,7 @@ def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contr
         }
 
     if next_move != "EXECUTE_DOMAIN_COMPILER" and narrative_state.get("phase") != "EXECUTION":
-        return {"status": "idle", "final_compiled_system": None, "validation_errors": []}
+        return {"status": "idle", "output_envelope": None, "final_compiled_system": None, "validation_errors": []}
 
     parameters = domain_state.get("domain_parameters") or {}
     DynamicSchema = inject_domain_schema(domain_state.get("active_domain") or "generic", parameters)
@@ -26,21 +26,40 @@ def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contr
     except ValidationError as error:
         return {
             "status": "validation_failed",
+            "output_envelope": build_output_envelope(
+                domain_state.get("active_domain") or "generic",
+                narrative_state,
+                domain_state,
+                domain_contract,
+                validated_data=None,
+                deliverables=[],
+                validation_errors=error.errors(),
+            ),
             "final_compiled_system": None,
             "validation_errors": error.errors(),
         }
 
-    final_output = compile_domain_output(
+    deliverables = compile_domain_deliverables(
         domain_state.get("active_domain") or "generic",
         validated_data.model_dump(),
         narrative_state,
         domain_contract,
     )
+    output_envelope = build_output_envelope(
+        domain_state.get("active_domain") or "generic",
+        narrative_state,
+        domain_state,
+        domain_contract,
+        validated_data=validated_data.model_dump(),
+        deliverables=deliverables,
+        validation_errors=[],
+    )
     return {
         "status": "compiled",
         "schema_name": DynamicSchema.__name__,
         "validated_data": validated_data.model_dump(),
-        "final_compiled_system": final_output,
+        "output_envelope": output_envelope,
+        "final_compiled_system": output_envelope,
         "validation_errors": [],
     }
 
@@ -59,7 +78,7 @@ def normalize_payload_for_schema(schema, parameters: dict[str, Any], narrative_s
     return payload
 
 
-def compile_domain_output(domain_id: str, validated_data: dict, narrative_state: dict, domain_contract) -> dict:
+def compile_domain_deliverables(domain_id: str, validated_data: dict, narrative_state: dict, domain_contract) -> list[dict]:
     if domain_id == "midjourney_v8_1_core":
         base_prompt = extract_base_prompt(narrative_state)
         parameters = [
@@ -72,20 +91,69 @@ def compile_domain_output(domain_id: str, validated_data: dict, narrative_state:
             parameters.append(f"--chaos {domain_parameters['chaos']}")
         if "seed" in domain_parameters:
             parameters.append(f"--seed {domain_parameters['seed']}")
-        return {
-            "type": "midjourney_prompt_contract",
-            "positive_prompt": base_prompt,
-            "negative_prompt": "optional",
-            "parameters": " ".join(parameters),
-            "compiled": f"{base_prompt} {' '.join(parameters)}".strip(),
-        }
+        return [
+            {
+                "artifact_type": "prompt_package",
+                "positive_prompt": base_prompt,
+                "negative_prompt": "optional",
+                "parameters": " ".join(parameters),
+                "compiled_preview": f"{base_prompt} {' '.join(parameters)}".strip(),
+            }
+        ]
 
+    return [
+        {
+            "artifact_type": infer_artifact_type(narrative_state, domain_contract),
+            "validated_data": validated_data,
+            "output_schema": getattr(domain_contract, "output_schema", {}),
+        }
+    ]
+
+
+def build_output_envelope(
+    domain_id: str,
+    narrative_state: dict,
+    domain_state: dict,
+    domain_contract,
+    validated_data: dict | None,
+    deliverables: list[dict],
+    validation_errors: list,
+) -> dict:
     return {
-        "type": "generic_domain_contract",
+        "artifact_type": infer_artifact_type(narrative_state, domain_contract),
         "domain_id": domain_id,
-        "validated_data": validated_data,
-        "output_schema": getattr(domain_contract, "output_schema", {}),
+        "phase": narrative_state.get("phase"),
+        "objective": narrative_state.get("objective"),
+        "central_object": (narrative_state.get("central_objects") or [None])[0],
+        "io_contract": {
+            "input": narrative_state.get("input_contract") or {},
+            "output": narrative_state.get("output_contract") or {},
+        },
+        "domain_parameters": domain_state.get("domain_parameters") or {},
+        "validation": {
+            "status": "failed" if validation_errors else "passed",
+            "schema": f"{domain_id}_Schema",
+            "validated_data": validated_data,
+            "errors": validation_errors,
+        },
+        "deliverables": deliverables,
+        "next_runtime_action": "EXECUTE_OUTPUT_RENDERER" if not validation_errors else "REPAIR_DOMAIN_CONTRACT",
     }
+
+
+def infer_artifact_type(narrative_state: dict, domain_contract) -> str:
+    output_contract = narrative_state.get("output_contract") or {}
+    includes = output_contract.get("includes") or []
+    if any(item in includes for item in ["positive_prompt", "negative_prompt", "technical_parameters"]):
+        return "prompt_package"
+    if any(item in includes for item in ["micro_app", "app_spec", "ui_spec"]):
+        return "micro_app_spec"
+    if any(item in includes for item in ["legal_contract", "clause_summary"]):
+        return "document_package"
+    output_schema = getattr(domain_contract, "output_schema", {}) or {}
+    if output_schema:
+        return output_schema.get("artifact_type") or "domain_artifact"
+    return "domain_artifact"
 
 
 def extract_base_prompt(narrative_state: dict) -> str:
@@ -100,4 +168,3 @@ def execute_web_search_stub(parameters: dict) -> dict:
         "reason": "web search hook available; no production provider configured",
         "parameters_seen": sorted(parameters.keys()),
     }
-

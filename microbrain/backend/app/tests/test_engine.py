@@ -171,8 +171,10 @@ def test_resolve_domain_parameters_moves_to_prompt_generation():
     compiled = domain_compiler_node(fourth["narrative"], fourth["domain_state"], load_domain_contract("midjourney_v8_1_core"))
     assert compiled["status"] == "compiled"
     assert compiled["schema_name"] == "midjourney_v8_1_core_Schema"
-    assert "--ar 5:11" in compiled["final_compiled_system"]["compiled"]
-    assert "--s 120" in compiled["final_compiled_system"]["compiled"]
+    assert compiled["output_envelope"]["artifact_type"] == "prompt_package"
+    assert compiled["output_envelope"]["next_runtime_action"] == "EXECUTE_OUTPUT_RENDERER"
+    assert "--ar 5:11" in compiled["output_envelope"]["deliverables"][0]["compiled_preview"]
+    assert "--s 120" in compiled["output_envelope"]["deliverables"][0]["compiled_preview"]
 
 
 def test_universal_state_machine_executes_non_midjourney_domain():
@@ -212,6 +214,8 @@ def test_universal_state_machine_executes_non_midjourney_domain():
     assert updated["active_problem"] is None
     assert implications["next_best_move"] == "EXECUTE_DOMAIN_COMPILER"
     assert compiled["status"] == "compiled"
+    assert compiled["output_envelope"]["artifact_type"] == "document_package"
+    assert compiled["output_envelope"]["next_runtime_action"] == "EXECUTE_OUTPUT_RENDERER"
     assert compiled["validated_data"] == {"penalty_clause": "required", "deposit_months": 2}
 
 
