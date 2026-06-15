@@ -30,6 +30,12 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
     if not response_plan:
         raise Exception("NO_RESPONSE_PLAN")
     answer = render_answer(response_plan, narrative_model, implications, collision)
+
+    turn = models.Turn(session_id=session_id, raw_input=raw_input, answer=answer)
+    db.add(turn)
+    db.flush()
+    apply_turn_id_to_relations(str(turn.id), object_extraction, relationship_graph, narrative_model)
+
     report = build_report(
         raw_input,
         narrative_before,
@@ -44,10 +50,6 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         object_extraction,
         relationship_graph,
     )
-
-    turn = models.Turn(session_id=session_id, raw_input=raw_input, answer=answer)
-    db.add(turn)
-    db.flush()
 
     persist_narrative(db, session_id, narrative_model)
     persist_objects_and_relations(db, session_id, object_extraction, relationship_graph, str(turn.id))
@@ -194,3 +196,16 @@ def persist_objects_and_relations(db: DbSession, session_id: int, extraction: di
                     valid_to=relation.get("valid_to"),
                 )
             )
+
+
+def apply_turn_id_to_relations(turn_id: str, extraction: dict, graph: dict, narrative: dict) -> None:
+    for relation_list in [
+        extraction.get("relations", []),
+        graph.get("active_relations", []),
+        graph.get("graph_json", {}).get("relations", []),
+        narrative.get("active_relations", []),
+        narrative.get("object_graph", {}).get("relations", []),
+    ]:
+        for relation in relation_list:
+            relation["source_turn_id"] = relation.get("source_turn_id") or turn_id
+            relation["valid_from"] = relation.get("valid_from") or turn_id
