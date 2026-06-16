@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ArtifactCanvas from "./components/ArtifactCanvas.jsx";
 import ChatView from "./components/ChatView.jsx";
 import Composer from "./components/Composer.jsx";
 import CurrentFocus from "./components/CurrentFocus.jsx";
@@ -271,6 +272,7 @@ export default function App() {
       <main className="app-shell">
         <Header developerMode={developerMode} onToggleDev={() => setDeveloperMode((value) => !value)} onNewSession={newSession} />
         <ChatView messages={messages} />
+        <ArtifactCanvas artifact={lastTurn?.artifact} compiledDomain={lastTurn?.compiled_domain} apiBase={API_BASE} />
         <CurrentFocus narrative={narrative} lastTurn={lastTurn} apiStatus={apiStatus} />
         <Composer onSend={sendTurn} />
       </main>
