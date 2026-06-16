@@ -26,8 +26,9 @@ def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contr
 
     output_type = detect_output_type(narrative_state, domain_state)
     deliverable = _dispatch_compiler(output_type, narrative_state, domain_state, domain_contract)
+    domain_id = domain_state.get("active_domain") or "generic"
     output_envelope = _build_output_envelope(
-        domain_id=domain_state.get("active_domain") or "generic",
+        domain_id=domain_id,
         narrative_state=narrative_state,
         domain_state=domain_state,
         output_type=output_type,
@@ -36,6 +37,8 @@ def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contr
     return {
         "status": "compiled",
         "output_type": output_type,
+        "schema_name": f"{domain_id}_Schema",
+        "validated_data": domain_state.get("domain_parameters") or {},
         "output_envelope": output_envelope,
         "final_compiled_system": output_envelope,
         "validation_errors": [],
@@ -61,7 +64,9 @@ def _build_output_envelope(
     output_type: str,
     deliverables: list[dict],
 ) -> dict:
+    artifact_type = "prompt_package" if output_type == "advanced_prompt" else "document_package"
     return {
+        "artifact_type": artifact_type,
         "output_type": output_type,
         "domain_id": domain_id,
         "phase": narrative_state.get("phase"),
