@@ -96,6 +96,10 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
     implications = infer_implications(narrative_model, collision, intent)
     compiled_domain = domain_compiler_node(narrative_model, updated_domain_state, domain_contract)
 
+    # Transition next_action_prompt after successful compilation so it doesn't stay frozen
+    if compiled_domain.get("status") == "compiled":
+        updated_domain_state["next_action_prompt"] = "OUTPUT_RENDERED"
+
     response_plan = build_response_plan(intent, collision, implications)
     if not response_plan:
         raise HTTPException(status_code=500, detail="no_response_plan")
@@ -129,10 +133,18 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
     db.commit()
     db.refresh(turn)
 
+    pipeline_trace = {
+        "INPUT_RECEIVED": bool(raw_input),
+        "DOMAIN_ROUTED": active_domain,
+        "NEXT_MOVE_SELECTED": updated_domain_state.get("next_action_prompt"),
+        "COMPILER_STATUS": compiled_domain.get("status"),
+    }
+
     return {
         "id": turn.id,
         "raw_input": raw_input,
         "answer": answer,
+        "report": report,
         "narrative_model": narrative_model,
         "collision_detection": collision,
         "implication_engine": implications,
@@ -141,6 +153,7 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         "domain_state": updated_domain_state,
         "compiled_domain": compiled_domain,
         "llm_dst": llm_output,
+        "pipeline_trace": pipeline_trace,
     }
 
 

@@ -1,7 +1,7 @@
 from app.engine.answer_renderer import render_answer
 from app.engine.collision_engine import detect_collision
 from app.engine.dialogue_state_tracker import update_narrative_with_dialogue_state
-from app.engine.domain_compiler import domain_compiler_node
+from app.engine.domain_compiler import domain_compiler_node, execute_next_move
 from app.engine.domain_contract_router import detect_domain, load_domain_contract
 from app.engine.domain_state_tracker import detect_anticipation_gaps, empty_domain_state, update_domain_state
 from app.engine.gap_resolution_engine import resolve_gaps
@@ -227,6 +227,32 @@ def test_state_reducers_preserve_historical_values_against_none_updates():
         {"input": ["free_text"], "output": ["positive_prompt"]},
         {"input": "none", "parameters": ["--ar 5:11"]},
     ) == {"input": ["free_text"], "output": ["positive_prompt"], "parameters": ["--ar 5:11"]}
+
+
+def test_system_design_compiler_executes():
+    result = execute_next_move({
+        "next_move": "EXECUTE_DOMAIN_COMPILER",
+        "active_domain": "system_design_navigation",
+        "objective": "sistema de gestion de inventario",
+        "central_object": "inventory_manager",
+        "output_contract": {"includes": ["app_stack"]},
+        "input_contract": {"mode": ["free_text"]},
+        "parameters": {"frontend": "React", "backend": "FastAPI", "database": "PostgreSQL"},
+    })
+    assert result["type"] == "compiled_output"
+    assert result["next_move"] == "DONE"
+    assert result["domain"] == "system_design_navigation"
+    content = result["content"]
+    assert content["artifact_type"] == "app_stack"
+    assert "React" in content["compiled_preview"]
+    assert "FastAPI" in content["compiled_preview"]
+    assert "PostgreSQL" in content["compiled_preview"]
+
+
+def test_execute_next_move_no_action_when_not_execute():
+    result = execute_next_move({"next_move": "AWAIT_INPUT"})
+    assert result["type"] == "no_action"
+    assert result["next_move"] == "AWAIT_INPUT"
 
 
 def test_anticipate_midjourney_domain_parameters():

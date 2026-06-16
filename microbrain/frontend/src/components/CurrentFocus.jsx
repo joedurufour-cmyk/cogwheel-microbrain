@@ -29,12 +29,20 @@ export default function CurrentFocus({ narrative, lastTurn, apiStatus }) {
         </div>
         <div>
           <span>Next Move</span>
-          <strong>
-            {lastTurn?.llm_dst?.next_move ||
-              lastTurn?.domain_state?.next_action_prompt ||
-              lastTurn?.implication_engine?.next_best_move ||
-              narrative?.open_loops?.[0] ||
-              (narrative?.central_objects?.[0] ? "define object input/output contract" : "define system objective")}
+          <strong style={{
+            color: ["OUTPUT_RENDERED", "DONE"].includes(
+              lastTurn?.domain_state?.next_action_prompt || lastTurn?.llm_dst?.next_move
+            ) ? "#22d3ee" : undefined
+          }}>
+            {(() => {
+              const raw = lastTurn?.domain_state?.next_action_prompt ||
+                lastTurn?.llm_dst?.next_move ||
+                lastTurn?.implication_engine?.next_best_move;
+              if (raw === "OUTPUT_RENDERED" || raw === "DONE") return "✓ output compilado";
+              return raw ||
+                narrative?.open_loops?.[0] ||
+                (narrative?.central_objects?.[0] ? "define object input/output contract" : "define system objective");
+            })()}
           </strong>
         </div>
         {lastTurn?.compiled_domain?.contract_score != null && (
