@@ -21,8 +21,16 @@ def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contr
             "domain_parameters": {**(domain_state.get("domain_parameters") or {}), "web_context": web_context},
         }
 
+    contract_score = _contract_completeness_score(narrative_state, domain_state)
+
     if next_move != "EXECUTE_DOMAIN_COMPILER" and narrative_state.get("phase") != "EXECUTION":
-        return {"status": "idle", "output_envelope": None, "final_compiled_system": None, "validation_errors": []}
+        return {
+            "status": "idle",
+            "output_envelope": None,
+            "final_compiled_system": None,
+            "validation_errors": [],
+            "contract_score": contract_score,
+        }
 
     output_type = detect_output_type(narrative_state, domain_state)
     deliverable = _dispatch_compiler(output_type, narrative_state, domain_state, domain_contract)
@@ -42,6 +50,7 @@ def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contr
         "output_envelope": output_envelope,
         "final_compiled_system": output_envelope,
         "validation_errors": [],
+        "contract_score": contract_score,
     }
 
 
@@ -79,6 +88,26 @@ def _build_output_envelope(
         "domain_parameters": domain_state.get("domain_parameters") or {},
         "deliverables": deliverables,
         "next_runtime_action": "EXECUTE_OUTPUT_RENDERER",
+    }
+
+
+def _contract_completeness_score(narrative_state: dict, domain_state: dict) -> dict:
+    has_objective = bool(narrative_state.get("objective"))
+    has_central_object = bool(narrative_state.get("central_objects"))
+    has_input = bool(narrative_state.get("input_contract"))
+    has_output = bool(narrative_state.get("output_contract"))
+    has_params = bool(domain_state.get("domain_parameters"))
+    score = (has_objective * 25) + (has_central_object * 15) + (has_input * 20) + (has_output * 20) + (has_params * 20)
+    return {
+        "score": score,
+        "contract_complete": score >= 80,
+        "components": {
+            "objective": has_objective,
+            "central_object": has_central_object,
+            "input_contract": has_input,
+            "output_contract": has_output,
+            "domain_parameters": has_params,
+        },
     }
 
 

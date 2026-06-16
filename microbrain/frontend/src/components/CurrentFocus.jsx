@@ -37,6 +37,14 @@ export default function CurrentFocus({ narrative, lastTurn, apiStatus }) {
               (narrative?.central_objects?.[0] ? "define object input/output contract" : "define system objective")}
           </strong>
         </div>
+        {lastTurn?.compiled_domain?.contract_score != null && (
+          <div>
+            <span>Contract</span>
+            <strong style={{ color: lastTurn.compiled_domain.contract_score.score >= 80 ? "#22d3ee" : "#f59e0b" }}>
+              {lastTurn.compiled_domain.contract_score.score}% {lastTurn.compiled_domain.contract_score.contract_complete ? "✓" : "incomplete"}
+            </strong>
+          </div>
+        )}
         <div>
           <span>Connection</span>
           <strong>{statusLabel}</strong>
