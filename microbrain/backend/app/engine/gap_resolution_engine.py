@@ -168,7 +168,7 @@ def detect_output_includes(text: str) -> list[str]:
         includes.append("python_code")
     if any(k in text for k in ["csv", "tabla", "spreadsheet", "excel", "filas", "columnas"]):
         includes.append("csv")
-    if any(k in text for k in ["prompt", "midjourney", "dalle", "stable diffusion", "imagen", "render"]):
+    if any(k in text for k in ["midjourney", "dalle", "stable diffusion", "generar imagen", "generate image"]):
         includes.append("advanced_prompt")
     if any(k in text for k in ["texto", "documento", "articulo", "resumen", "descripcion"]):
         includes.append("text")

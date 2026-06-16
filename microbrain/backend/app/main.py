@@ -4,9 +4,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import init_db
+from app.middleware.observability import ObservabilityMiddleware
+from app.middleware.security import SecurityMiddleware
 from app.routes import reports, sessions, tests, turns
 
 app = FastAPI(title="MicroBrain v0.3 API")
+
+# Middlewares applied innermost-first; observability wraps everything outermost
+app.add_middleware(ObservabilityMiddleware)
+app.add_middleware(SecurityMiddleware)
 
 frontend_origins = [
     origin.strip()
@@ -19,8 +25,8 @@ app.add_middleware(
     allow_origins=frontend_origins,
     allow_origin_regex=r"https://.*\.netlify\.app",
     allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "x-api-key", "x-trace-id"],
 )
 
 
