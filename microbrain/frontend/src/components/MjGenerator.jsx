@@ -7,45 +7,35 @@ const PLATFORMS = [
   { id: "nano_banana", label: "Nano Banana" },
 ];
 
-const PLATFORM_ENHANCERS = {
-  midjourney_v8_1: [
-    "cinematic composition", "high visual clarity", "detailed subject",
-    "dramatic lighting", "rich atmosphere", "professional render",
-  ],
-  dalle_3: [
-    "highly detailed", "photorealistic", "dramatic lighting",
-    "professional photography", "rich atmosphere",
-  ],
-  nano_banana: [
-    "vibrant colors", "stylized illustration", "bold composition",
-    "imaginative scene", "editorial quality",
-  ],
-};
-
-const PLATFORM_NEGATIVES = {
-  midjourney_v8_1: "blurry, low quality, distorted, watermark, text overlay, oversaturated, bad anatomy, cropped, out of frame",
-  dalle_3: "",
-  nano_banana: "low quality, blurry, watermark, text overlay",
-};
-
 const AR_OPTIONS = ["1:1", "16:9", "9:16", "3:2", "2:3", "4:3", "3:4", "4:5", "5:4", "5:11", "21:9", "7:4"];
 
+const MJ_NEGATIVE =
+  "blurry, low quality, distorted, watermark, text overlay, oversaturated, bad anatomy, cropped, out of frame";
+
+// Simplified local fallback (no blueprint parsing — used offline when API unavailable)
 function compileLocally(inputText, platform, params) {
   const base = inputText.trim();
   if (!base) return null;
-  const enhancers = PLATFORM_ENHANCERS[platform] || PLATFORM_ENHANCERS.midjourney_v8_1;
+
   let positive;
   if (platform === "midjourney_v8_1") {
     const suffix = `--ar ${params.ar} --s ${params.s} --c ${params.c} --w ${params.w} --q ${params.q} --v 8.1`;
-    positive = `${base}, ${enhancers.join(", ")} ${suffix}`;
+    positive = `${base}, cinematic realism, epic atmosphere, dramatic lighting, wide shot, high detail ${suffix}`;
+  } else if (platform === "dalle_3") {
+    positive = `Create an image of ${base}. Cinematic realism. Epic atmosphere. Dramatic lighting. Wide shot composition. Highly detailed.`;
   } else {
-    positive = `${base}, ${enhancers.join(", ")}`;
+    positive = `Transform into a cinematic scene: ${base}. Cinematic realism. Epic atmosphere with dramatic lighting. Strong wide shot composition, striking environmental detail.`;
   }
-  const defaultNeg = PLATFORM_NEGATIVES[platform] || "";
-  const negative = params.output_mode === "prompt_plus_negative" && defaultNeg ? defaultNeg : "";
+
+  const negative =
+    platform === "midjourney_v8_1" && params.output_mode === "prompt_plus_negative"
+      ? MJ_NEGATIVE
+      : "";
+
   const canvas = negative
     ? `POSITIVE PROMPT\n${positive}\n\nNEGATIVE PROMPT\n${negative}`
     : positive;
+
   return { status: "DONE_WITH_PROMPT", positive_prompt: positive, negative_prompt: negative, canvas, file: null, platform };
 }
 
@@ -65,7 +55,7 @@ export default function MjGenerator({ apiBase }) {
     setError(null);
   }, [inputText]);
 
-  // Reset output_mode when platform changes (DALL·E / Nano Banana have no negative)
+  // Reset output_mode when switching platforms (DALL·E / Nano Banana have no negative)
   useEffect(() => {
     setParams((p) => ({
       ...p,
@@ -133,7 +123,7 @@ export default function MjGenerator({ apiBase }) {
       <div className="mj-input-zone">
         <textarea
           className="mj-textarea"
-          placeholder="Describe la escena que quieres visualizar..."
+          placeholder="Describe tu imagen..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={(e) => {
