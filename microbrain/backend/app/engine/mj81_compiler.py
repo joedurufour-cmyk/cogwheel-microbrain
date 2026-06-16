@@ -2,31 +2,10 @@ import os
 import uuid
 
 from app.engine.artifact_exporter import OUTPUTS_DIR
+from app.engine.platform_compilers import compile_dalle, compile_midjourney, compile_nano_banana
+from app.engine.visual_blueprint import parse_blueprint
 
-_PLATFORM_ENHANCERS = {
-    "midjourney_v8_1": [
-        "cinematic composition",
-        "high visual clarity",
-        "detailed subject",
-        "dramatic lighting",
-        "rich atmosphere",
-        "professional render",
-    ],
-    "dalle_3": [
-        "highly detailed",
-        "photorealistic",
-        "dramatic lighting",
-        "professional photography",
-        "rich atmosphere",
-    ],
-    "nano_banana": [
-        "vibrant colors",
-        "stylized illustration",
-        "bold composition",
-        "imaginative scene",
-        "editorial quality",
-    ],
-}
+VALID_PLATFORMS = {"midjourney_v8_1", "dalle_3", "nano_banana"}
 
 _PLATFORM_NEGATIVES = {
     "midjourney_v8_1": (
@@ -34,10 +13,8 @@ _PLATFORM_NEGATIVES = {
         "oversaturated, bad anatomy, cropped, out of frame"
     ),
     "dalle_3": "",
-    "nano_banana": "low quality, blurry, watermark, text overlay",
+    "nano_banana": "",
 }
-
-VALID_PLATFORMS = set(_PLATFORM_ENHANCERS.keys())
 
 
 def compile_mj81(input_text: str, params: dict) -> dict:
@@ -49,20 +26,14 @@ def compile_mj81(input_text: str, params: dict) -> dict:
     if platform not in VALID_PLATFORMS:
         platform = "midjourney_v8_1"
 
-    enhancers = _PLATFORM_ENHANCERS[platform]
+    blueprint = parse_blueprint(base)
 
     if platform == "midjourney_v8_1":
-        suffix = (
-            f"--ar {params.get('ar', '1:1')} "
-            f"--s {params.get('s', 100)} "
-            f"--c {params.get('c', 0)} "
-            f"--w {params.get('w', 0)} "
-            f"--q {params.get('q', 1)} "
-            "--v 8.1"
-        )
-        positive = f"{base}, {', '.join(enhancers)} {suffix}"
+        positive = compile_midjourney(blueprint, params)
+    elif platform == "dalle_3":
+        positive = compile_dalle(blueprint)
     else:
-        positive = f"{base}, {', '.join(enhancers)}"
+        positive = compile_nano_banana(blueprint)
 
     output_mode = params.get("output_mode", "prompt_plus_negative")
     default_negative = _PLATFORM_NEGATIVES.get(platform, "")
@@ -78,6 +49,7 @@ def compile_mj81(input_text: str, params: dict) -> dict:
         "canvas": canvas,
         "file": file_meta,
         "platform": platform,
+        "blueprint": blueprint,
     }
 
 
