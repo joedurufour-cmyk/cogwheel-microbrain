@@ -86,13 +86,22 @@ def next_action_prompt(gap_resolution: dict, active_domain: str | None = None, r
         return "definir contrato de entrada"
     if gap_resolution.get("blocking_gap") == "missing_output_contract":
         return "definir contrato de salida"
+    if gap_resolution.get("blocking_gap") == "missing_scene_description":
+        return "describir la escena"
     if gap_resolution.get("blocking_gap") == "missing_domain_parameters":
         return "confirmar parametros de dominio"
+    # Scene resolved this turn → compile immediately
+    if "missing_scene_description" in gap_resolution.get("resolved_gaps", []):
+        return "EXECUTE_DOMAIN_COMPILER"
     if "missing_domain_parameters" in gap_resolution.get("resolved_gaps", []):
         return "EXECUTE_DOMAIN_COMPILER"
     if gap_resolution.get("resolved_gaps"):
         return "continuar con la salida definida"
-    if active_domain and active_domain != "system_design_navigation" and "missing_domain_parameters" in (resolved_gaps or []):
+    # Persistent check: already have scene or domain params from previous turns
+    full = set(resolved_gaps or [])
+    if active_domain == "midjourney_v8_1_core" and "missing_scene_description" in full:
+        return "EXECUTE_DOMAIN_COMPILER"
+    if active_domain and active_domain != "system_design_navigation" and "missing_domain_parameters" in full:
         return "EXECUTE_DOMAIN_COMPILER"
     return ""
 

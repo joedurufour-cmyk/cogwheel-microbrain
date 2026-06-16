@@ -13,6 +13,15 @@ def update_narrative_with_dialogue_state(
     previous_loops = [loop for loop in narrative_before.get("open_loops") or [] if loop not in resolved]
     next_gap = gap_resolution.get("blocking_gap") or infer_next_gap(updated, domain_state, resolved)
 
+    # Midjourney: if gap_resolution set missing_domain_parameters as next, redirect to scene first
+    if (
+        next_gap == "missing_domain_parameters"
+        and domain_state.get("active_domain") == "midjourney_v8_1_core"
+        and not (domain_state.get("domain_parameters") or {}).get("scene_description")
+        and "missing_scene_description" not in resolved
+    ):
+        next_gap = "missing_scene_description"
+
     if gap_resolution.get("input_contract"):
         updated["input_contract"] = gap_resolution["input_contract"]
     elif narrative_before.get("input_contract"):
@@ -40,6 +49,12 @@ def update_narrative_with_dialogue_state(
         updated["open_loops"] = previous_loops
         if updated.get("blocking_gap") in resolved:
             updated["blocking_gap"] = previous_loops[0] if previous_loops else None
+        # Midjourney: clear stale domain_parameters blocking gap when scene was just resolved
+        elif (
+            "missing_scene_description" in (gap_resolution.get("resolved_gaps") or [])
+            and updated.get("blocking_gap") == "missing_domain_parameters"
+        ):
+            updated["blocking_gap"] = None
 
     if updated.get("object_graph"):
         gaps = []
@@ -66,6 +81,12 @@ def infer_next_gap(narrative: dict, domain_state: dict, resolved: set[str]) -> s
         return "missing_io_contract"
     if narrative.get("input_contract") and not narrative.get("output_contract") and "missing_output_contract" not in resolved:
         return "missing_output_contract"
+    # Midjourney: scene description is the compilation prerequisite
+    if active_domain == "midjourney_v8_1_core" and narrative.get("output_contract"):
+        has_scene = bool((domain_state.get("domain_parameters") or {}).get("scene_description"))
+        if not has_scene and "missing_scene_description" not in resolved:
+            return "missing_scene_description"
+        return None  # Scene captured → ready to compile
     if active_domain and active_domain != "system_design_navigation" and narrative.get("output_contract") and "missing_domain_parameters" not in resolved:
         return "missing_domain_parameters"
     return None
@@ -76,7 +97,11 @@ def infer_phase(narrative: dict, domain_state: dict, resolved: set[str]) -> str:
     has_scope = bool(narrative.get("objective") and central_objects)
     has_contract = bool(narrative.get("input_contract") and narrative.get("output_contract"))
     active_domain = domain_state.get("active_domain") or narrative.get("active_domain")
-    domain_complete = bool(active_domain and active_domain != "system_design_navigation" and "missing_domain_parameters" in resolved)
+    # Midjourney reaches EXECUTION once scene is captured (tech flags optional)
+    if active_domain == "midjourney_v8_1_core":
+        domain_complete = "missing_scene_description" in resolved
+    else:
+        domain_complete = bool(active_domain and active_domain != "system_design_navigation" and "missing_domain_parameters" in resolved)
     if has_scope and has_contract and domain_complete:
         return "EXECUTION"
     if has_scope and has_contract:

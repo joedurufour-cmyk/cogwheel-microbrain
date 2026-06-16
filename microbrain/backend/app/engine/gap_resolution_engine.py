@@ -67,6 +67,18 @@ def resolve_gaps(raw_input: str, narrative_state: dict, domain_state: dict, cont
         or first_unresolved_loop(narrative_state, resolved_before)
         or infer_active_gap(narrative_state, domain_state, resolved_before, contract)
     )
+
+    # Midjourney: scene must be captured before tech params
+    _active_domain = domain_state.get("active_domain")
+    _has_scene = bool((domain_state.get("domain_parameters") or {}).get("scene_description"))
+    if (
+        active_gap == "missing_domain_parameters"
+        and _active_domain == "midjourney_v8_1_core"
+        and not _has_scene
+        and "missing_scene_description" not in resolved_before
+    ):
+        active_gap = "missing_scene_description"
+
     result = {
         "resolved_gaps": [],
         "active_gap_before": active_gap,
@@ -81,6 +93,20 @@ def resolve_gaps(raw_input: str, narrative_state: dict, domain_state: dict, cont
 
     if not active_gap or active_gap in resolved_before:
         result["blocking_gap"] = first_unresolved_loop(narrative_state, resolved_before)
+        return result
+
+    # Scene description: any substantial text resolves it; flags also captured
+    if active_gap == "missing_scene_description":
+        domain_params = detect_domain_parameters(text)
+        scene = domain_params.get("scene_description") or (raw_input.strip() if len(raw_input.strip()) > 3 else "")
+        if scene:
+            result["resolved_gaps"].append("missing_scene_description")
+            result["write_to"] = "domain_state.domain_parameters"
+            merged = {**result["domain_parameters"], **domain_params}
+            merged["scene_description"] = merged.get("scene_description") or scene
+            result["domain_parameters"] = merged
+            result["next_gap"] = None
+            result["blocking_gap"] = None
         return result
 
     rule = GAP_RESOLUTION_RULES.get(active_gap)
@@ -117,6 +143,11 @@ def infer_active_gap(narrative_state: dict, domain_state: dict, resolved: set[st
         return "missing_io_contract"
     if narrative_state.get("input_contract") and not narrative_state.get("output_contract") and "missing_output_contract" not in resolved:
         return "missing_output_contract"
+    # Midjourney: require explicit scene before tech params
+    if active_domain == "midjourney_v8_1_core" and narrative_state.get("output_contract"):
+        has_scene = bool((domain_state.get("domain_parameters") or {}).get("scene_description"))
+        if not has_scene and "missing_scene_description" not in resolved:
+            return "missing_scene_description"
     if should_request_domain_parameters(active_domain, narrative_state, domain_state, resolved, contract):
         return "missing_domain_parameters"
     return None
