@@ -476,6 +476,46 @@ textarea {
 }
 
 /* ── MJ Generator ── */
+.mj-platform-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mj-platform-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 20px;
+  background: rgba(3, 7, 18, 0.50);
+  color: #8ea3b5;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.mj-platform-btn.active {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(34, 211, 238, 0.12);
+  color: #d9fbff;
+}
+
+.mj-platform-btn:hover:not(.active) {
+  border-color: rgba(148, 163, 184, 0.38);
+  color: #c8dae8;
+}
+
+.mj-section-label {
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #22d3ee;
+  padding: 0 2px;
+}
+
 .mj-generator {
   display: flex;
   flex-direction: column;
@@ -555,6 +595,9 @@ textarea {
 
 .mj-generate-btn {
   align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 22px;
   border: 0;
   border-radius: 16px;
@@ -612,6 +655,9 @@ textarea {
 }
 
 .mj-copy-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 3px 9px;
   border: 1px solid rgba(34, 211, 238, 0.28);
   border-radius: 7px;
@@ -646,6 +692,9 @@ textarea {
 }
 
 .mj-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 9px 18px;
   border: 1px solid rgba(34, 211, 238, 0.30);
   border-radius: 14px;
