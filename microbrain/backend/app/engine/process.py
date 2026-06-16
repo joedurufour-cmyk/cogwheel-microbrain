@@ -67,6 +67,14 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
     llm_output = run_llm_dst(raw_input, build_universal_state(narrative_before, domain_state_before))
     if llm_output:
         gap_resolution = apply_llm_dst_to_gap_resolution(llm_output, gap_resolution, domain_state_before)
+        # Propagate LLM-extracted objective when the rule-based model missed it
+        _empty = {"none", "no congelado", ""}
+        if (llm_output.get("objective") or "").lower().strip() not in _empty:
+            narrative_model["objective"] = narrative_model.get("objective") or llm_output["objective"]
+        if (llm_output.get("central_object") or "").lower().strip() not in _empty:
+            co = llm_output["central_object"]
+            if co not in narrative_model.get("central_objects", []):
+                narrative_model["central_objects"] = [co] + (narrative_model.get("central_objects") or [])
 
     updated_domain_state = update_domain_state(
         domain_state_before, active_domain, gap_resolution, object_extraction, domain_contract,
