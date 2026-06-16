@@ -11,6 +11,47 @@ from app.engine.output_compilers import (
     detect_output_type,
 )
 
+# Explicit compiler registry — add new domains here
+DOMAIN_COMPILERS: dict = {
+    "midjourney_v8_1_core": compile_advanced_prompt,
+    "system_design_navigation": compile_app_stack,
+}
+
+
+def execute_next_move(state: dict) -> dict:
+    """
+    Thin executor used by tests and external callers.
+    state keys: objective, central_object, active_domain, next_move, parameters,
+                output_contract, input_contract
+    """
+    if state.get("next_move") != "EXECUTE_DOMAIN_COMPILER":
+        return {"type": "no_action", "next_move": state.get("next_move", "DONE")}
+
+    active_domain = state.get("active_domain") or "system_design_navigation"
+    narrative_state = {
+        "objective": state.get("objective"),
+        "central_objects": [state.get("central_object", "system")],
+        "output_contract": state.get("output_contract") or {},
+        "input_contract": state.get("input_contract") or {},
+        "phase": "EXECUTION",
+        "current_architecture": [],
+    }
+    domain_state = {
+        "active_domain": active_domain,
+        "domain_parameters": state.get("parameters") or {},
+        "next_action_prompt": "EXECUTE_DOMAIN_COMPILER",
+    }
+
+    compiler = DOMAIN_COMPILERS.get(active_domain)
+    if not compiler:
+        # Fall back to output-type dispatch
+        output_type = detect_output_type(narrative_state, domain_state)
+        content = _dispatch_by_type(output_type, narrative_state, domain_state)
+    else:
+        content = compiler(narrative_state, domain_state)
+
+    return {"type": "compiled_output", "domain": active_domain, "content": content, "next_move": "DONE"}
+
 
 def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contract) -> dict:
     next_move = domain_state.get("next_action_prompt") or ""
@@ -51,10 +92,20 @@ def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contr
         "final_compiled_system": output_envelope,
         "validation_errors": [],
         "contract_score": contract_score,
+        "next_move": "DONE",
     }
 
 
 def _dispatch_compiler(output_type: str, narrative_state: dict, domain_state: dict, domain_contract) -> dict:
+    # Check domain registry first, then fall back to output-type dispatch
+    active_domain = domain_state.get("active_domain") or ""
+    compiler = DOMAIN_COMPILERS.get(active_domain)
+    if compiler:
+        return compiler(narrative_state, domain_state)
+    return _dispatch_by_type(output_type, narrative_state, domain_state)
+
+
+def _dispatch_by_type(output_type: str, narrative_state: dict, domain_state: dict) -> dict:
     if output_type == "app_stack":
         return compile_app_stack(narrative_state, domain_state)
     if output_type == "python_code":

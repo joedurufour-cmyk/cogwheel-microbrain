@@ -36,6 +36,24 @@ def render_answer(
     if compiled_domain.get("status") == "compiled":
         return _render_compiled_output(compiled_domain)
 
+    # Scene gap: ask for visual description
+    scene_blocking = (
+        gap_resolution.get("blocking_gap") == "missing_scene_description"
+        or domain_state.get("next_action_prompt") == "describir la escena"
+        or narrative_model.get("blocking_gap") == "missing_scene_description"
+    )
+    if scene_blocking:
+        active_domain = domain_state.get("active_domain") or narrative_model.get("active_domain")
+        return "\n".join([
+            f"Dominio activo: {format_domain(active_domain)}",
+            "",
+            "Describe la escena que quieres visualizar:",
+            "→ sujeto, acción, estilo, iluminación, atmósfera.",
+            "",
+            "Puedes incluir parámetros técnicos en el mismo mensaje:",
+            "   supergirl en armadura táctica, ciudad cyberpunk de noche --ar 16:9 --s 200 --v 8.1",
+        ])
+
     if "missing_io_contract" in gap_resolution.get("resolved_gaps", []):
         modes = narrative_model.get("input_contract", {}).get("mode", [])
         mode_label = " + ".join(mode.replace("_", " ") for mode in modes) or "texto libre"

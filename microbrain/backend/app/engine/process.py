@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app import models
 from app.engine.answer_renderer import render_answer
+from app.engine.artifact_exporter import compile_and_export
 from app.engine.collision_engine import detect_collision
 from app.engine.dialogue_state_tracker import update_narrative_with_dialogue_state
 from app.engine.domain_compiler import domain_compiler_node
@@ -96,6 +97,15 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
     implications = infer_implications(narrative_model, collision, intent)
     compiled_domain = domain_compiler_node(narrative_model, updated_domain_state, domain_contract)
 
+    # Transition next_action_prompt after successful compilation so it doesn't stay frozen
+    if compiled_domain.get("status") == "compiled":
+        updated_domain_state["next_action_prompt"] = "OUTPUT_RENDERED"
+        output_type = compiled_domain.get("output_type") or "text"
+        deliverable = (compiled_domain.get("output_envelope", {}).get("deliverables") or [{}])[0]
+        artifact = compile_and_export(output_type, deliverable)
+    else:
+        artifact = {"status": "IDLE"}
+
     response_plan = build_response_plan(intent, collision, implications)
     if not response_plan:
         raise HTTPException(status_code=500, detail="no_response_plan")
@@ -129,10 +139,20 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
     db.commit()
     db.refresh(turn)
 
+    pipeline_trace = {
+        "INPUT_RECEIVED": bool(raw_input),
+        "DOMAIN_ROUTED": active_domain,
+        "NEXT_MOVE_SELECTED": updated_domain_state.get("next_action_prompt"),
+        "COMPILER_STATUS": compiled_domain.get("status"),
+        "ARTIFACT_STATUS": artifact.get("status"),
+    }
+
     return {
         "id": turn.id,
         "raw_input": raw_input,
         "answer": answer,
+        "report": report,
+        "artifact": artifact,
         "narrative_model": narrative_model,
         "collision_detection": collision,
         "implication_engine": implications,
@@ -141,6 +161,7 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         "domain_state": updated_domain_state,
         "compiled_domain": compiled_domain,
         "llm_dst": llm_output,
+        "pipeline_trace": pipeline_trace,
     }
 
 

@@ -1,7 +1,7 @@
 from app.engine.answer_renderer import render_answer
 from app.engine.collision_engine import detect_collision
 from app.engine.dialogue_state_tracker import update_narrative_with_dialogue_state
-from app.engine.domain_compiler import domain_compiler_node
+from app.engine.domain_compiler import domain_compiler_node, execute_next_move
 from app.engine.domain_contract_router import detect_domain, load_domain_contract
 from app.engine.domain_state_tracker import detect_anticipation_gaps, empty_domain_state, update_domain_state
 from app.engine.gap_resolution_engine import resolve_gaps
@@ -119,7 +119,7 @@ def test_do_not_repeat_resolved_input_gap():
     assert third["narrative"]["blocking_gap"] != "missing_io_contract"
 
 
-def test_resolve_output_contract_advances_to_domain_parameters():
+def test_resolve_output_contract_advances_to_scene_description():
     first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
     second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])
     third = run_domain_turn(
@@ -131,7 +131,8 @@ def test_resolve_output_contract_advances_to_domain_parameters():
     assert third["narrative"]["output_contract"] == {
         "includes": ["positive_prompt", "negative_prompt", "technical_parameters"]
     }
-    assert third["narrative"]["blocking_gap"] == "missing_domain_parameters"
+    # Midjourney now advances to scene description, not domain parameters directly
+    assert third["narrative"]["blocking_gap"] == "missing_scene_description"
 
 
 def test_negative_prompt_does_not_replace_prompt_generator_as_central_object():
@@ -145,11 +146,12 @@ def test_negative_prompt_does_not_replace_prompt_generator_as_central_object():
     collision = {"exists": False, "type": None, "severity": 0, "evidence": []}
     implications = infer_implications(third["narrative"], collision, {"explicit": None})
     assert third["narrative"]["central_objects"][0] == "prompt_generator"
-    assert implications["next_best_move"] == "confirmar parametros de dominio"
+    # After output contract, Midjourney asks for scene (not tech params)
+    assert implications["next_best_move"] == "describir la escena visual que quieres visualizar"
     assert implications["next_best_move"] != "define system objective"
 
 
-def test_resolve_domain_parameters_moves_to_prompt_generation():
+def test_scene_description_triggers_compilation():
     first = run_domain_turn("Quiero construir un generador de prompts para renders Midjourney v8.1")
     second = run_domain_turn("Input texto libre y bloques semánticos", first["narrative"], first["domain_state"])
     third = run_domain_turn(
@@ -157,14 +159,18 @@ def test_resolve_domain_parameters_moves_to_prompt_generation():
         second["narrative"],
         second["domain_state"],
     )
-    fourth = run_domain_turn("Aspect ratio = 5:11, stylize 120 chaos 0 seed 0", third["narrative"], third["domain_state"])
+    # Turn 4: scene + optional flags in same message
+    fourth = run_domain_turn(
+        "supergirl en armadura táctica, ciudad cyberpunk de noche --ar 16:9 --s 200 --v 8.1",
+        third["narrative"],
+        third["domain_state"],
+    )
     collision = {"exists": False, "type": None, "severity": 0, "evidence": []}
     implications = infer_implications(fourth["narrative"], collision, {"explicit": None})
-    assert "missing_domain_parameters" in fourth["domain_state"]["resolved_gaps"]
-    assert fourth["domain_state"]["domain_parameters"]["aspect_ratio"] == "5:11"
-    assert fourth["domain_state"]["domain_parameters"]["stylize"] == 120
-    assert fourth["domain_state"]["domain_parameters"]["chaos"] == 0
-    assert fourth["domain_state"]["domain_parameters"]["seed"] == 0
+    assert "missing_scene_description" in fourth["domain_state"]["resolved_gaps"]
+    assert "supergirl" in fourth["domain_state"]["domain_parameters"]["scene_description"]
+    assert fourth["domain_state"]["domain_parameters"]["aspect_ratio"] == "16:9"
+    assert fourth["domain_state"]["domain_parameters"]["stylize"] == 200
     assert fourth["narrative"]["phase"] == "EXECUTION"
     assert fourth["narrative"]["active_problem"] is None
     assert fourth["domain_state"]["next_action_prompt"] == "EXECUTE_DOMAIN_COMPILER"
@@ -173,9 +179,11 @@ def test_resolve_domain_parameters_moves_to_prompt_generation():
     assert compiled["status"] == "compiled"
     assert compiled["schema_name"] == "midjourney_v8_1_core_Schema"
     assert compiled["output_envelope"]["artifact_type"] == "prompt_package"
-    assert compiled["output_envelope"]["next_runtime_action"] == "EXECUTE_OUTPUT_RENDERER"
-    assert "--ar 5:11" in compiled["output_envelope"]["deliverables"][0]["compiled_preview"]
-    assert "--s 120" in compiled["output_envelope"]["deliverables"][0]["compiled_preview"]
+    preview = compiled["output_envelope"]["deliverables"][0]["compiled_preview"]
+    assert "supergirl" in preview
+    assert "--ar 16:9" in preview
+    assert "--s 200" in preview
+    assert "--v 8.1" in preview
 
 
 def test_universal_state_machine_executes_non_midjourney_domain():
@@ -227,6 +235,32 @@ def test_state_reducers_preserve_historical_values_against_none_updates():
         {"input": ["free_text"], "output": ["positive_prompt"]},
         {"input": "none", "parameters": ["--ar 5:11"]},
     ) == {"input": ["free_text"], "output": ["positive_prompt"], "parameters": ["--ar 5:11"]}
+
+
+def test_system_design_compiler_executes():
+    result = execute_next_move({
+        "next_move": "EXECUTE_DOMAIN_COMPILER",
+        "active_domain": "system_design_navigation",
+        "objective": "sistema de gestion de inventario",
+        "central_object": "inventory_manager",
+        "output_contract": {"includes": ["app_stack"]},
+        "input_contract": {"mode": ["free_text"]},
+        "parameters": {"frontend": "React", "backend": "FastAPI", "database": "PostgreSQL"},
+    })
+    assert result["type"] == "compiled_output"
+    assert result["next_move"] == "DONE"
+    assert result["domain"] == "system_design_navigation"
+    content = result["content"]
+    assert content["artifact_type"] == "app_stack"
+    assert "React" in content["compiled_preview"]
+    assert "FastAPI" in content["compiled_preview"]
+    assert "PostgreSQL" in content["compiled_preview"]
+
+
+def test_execute_next_move_no_action_when_not_execute():
+    result = execute_next_move({"next_move": "AWAIT_INPUT"})
+    assert result["type"] == "no_action"
+    assert result["next_move"] == "AWAIT_INPUT"
 
 
 def test_anticipate_midjourney_domain_parameters():

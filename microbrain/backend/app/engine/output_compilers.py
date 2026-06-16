@@ -96,7 +96,12 @@ def compile_advanced_prompt(narrative_state: dict, domain_state: dict) -> dict:
     scene = params.get("scene_description") or ""
     if not scene and os.getenv("ANTHROPIC_API_KEY"):
         scene = _generate_midjourney_scene(objective, central, params)
-    base = scene or f"{objective} / {central}".strip(" /")
+    if not scene:
+        # Use any extra non-flag domain params, or the central object name
+        # (never use the full Spanish objective — it's not a visual description)
+        extras = [str(v) for k, v in params.items() if k not in {"aspect_ratio", "stylize", "version", "chaos", "seed", "scene_description", "negative_prompt"} and isinstance(v, str)]
+        scene = ", ".join(extras) if extras else central.replace("_", " ")
+    base = scene
 
     flags = []
     if params.get("aspect_ratio"):

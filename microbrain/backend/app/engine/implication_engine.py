@@ -60,6 +60,8 @@ def next_move_from_gap(blocking_gap: str | None) -> str | None:
         return "definir contrato de entrada"
     if blocking_gap == "missing_output_contract":
         return "definir contrato de salida"
+    if blocking_gap == "missing_scene_description":
+        return "describir la escena visual que quieres visualizar"
     if blocking_gap == "missing_domain_parameters":
         return "confirmar parametros de dominio"
     return None
