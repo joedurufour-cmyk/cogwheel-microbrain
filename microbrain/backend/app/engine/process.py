@@ -15,6 +15,7 @@ from app.engine.domain_state_tracker import (
     update_domain_state,
 )
 from app.engine.gap_resolution_engine import resolve_gaps
+from app.engine.llm_dst import apply_llm_dst_to_gap_resolution, build_universal_state, run_llm_dst
 from app.engine.implication_engine import infer_implications
 from app.engine.intent_reader import infer_intent
 from app.engine.mental_model import update_mental_model
@@ -47,6 +48,9 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         domain_state=domain_state_before,
         contract=domain_contract,
     )
+    llm_output = run_llm_dst(raw_input, build_universal_state(narrative_before, domain_state_before))
+    if llm_output:
+        gap_resolution = apply_llm_dst_to_gap_resolution(llm_output, gap_resolution, domain_state_before)
     updated_domain_state = update_domain_state(
         domain_state_before,
         active_domain,
@@ -81,6 +85,7 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         gap_resolution,
         updated_domain_state,
         compiled_domain,
+        llm_output,
     )
 
     turn = models.Turn(session_id=session_id, raw_input=raw_input, answer=answer)
@@ -143,6 +148,7 @@ def process_turn(db: DbSession, session_id: int, raw_input: str) -> dict:
         "active_domain_contract": domain_contract.model_dump(),
         "anticipation": anticipation,
         "compiled_domain": compiled_domain,
+        "llm_dst": llm_output,
         "report": report,
     }
 

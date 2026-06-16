@@ -1,10 +1,15 @@
 import os
-from typing import Any
 
 import httpx
-from pydantic import ValidationError
 
-from app.engine.domain_schema_registry import inject_domain_schema
+from app.engine.output_compilers import (
+    compile_advanced_prompt,
+    compile_app_stack,
+    compile_csv,
+    compile_python_code,
+    compile_text,
+    detect_output_type,
+)
 
 
 def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contract) -> dict:
@@ -19,110 +24,45 @@ def domain_compiler_node(narrative_state: dict, domain_state: dict, domain_contr
     if next_move != "EXECUTE_DOMAIN_COMPILER" and narrative_state.get("phase") != "EXECUTION":
         return {"status": "idle", "output_envelope": None, "final_compiled_system": None, "validation_errors": []}
 
-    parameters = domain_state.get("domain_parameters") or {}
-    DynamicSchema = inject_domain_schema(domain_state.get("active_domain") or "generic", parameters)
-    payload = normalize_payload_for_schema(DynamicSchema, parameters, narrative_state)
-
-    try:
-        validated_data = DynamicSchema(**payload)
-    except ValidationError as error:
-        return {
-            "status": "validation_failed",
-            "output_envelope": build_output_envelope(
-                domain_state.get("active_domain") or "generic",
-                narrative_state,
-                domain_state,
-                domain_contract,
-                validated_data=None,
-                deliverables=[],
-                validation_errors=error.errors(),
-            ),
-            "final_compiled_system": None,
-            "validation_errors": error.errors(),
-        }
-
-    deliverables = compile_domain_deliverables(
-        domain_state.get("active_domain") or "generic",
-        validated_data.model_dump(),
-        narrative_state,
-        domain_contract,
-    )
-    output_envelope = build_output_envelope(
-        domain_state.get("active_domain") or "generic",
-        narrative_state,
-        domain_state,
-        domain_contract,
-        validated_data=validated_data.model_dump(),
-        deliverables=deliverables,
-        validation_errors=[],
+    output_type = detect_output_type(narrative_state, domain_state)
+    deliverable = _dispatch_compiler(output_type, narrative_state, domain_state, domain_contract)
+    output_envelope = _build_output_envelope(
+        domain_id=domain_state.get("active_domain") or "generic",
+        narrative_state=narrative_state,
+        domain_state=domain_state,
+        output_type=output_type,
+        deliverables=[deliverable],
     )
     return {
         "status": "compiled",
-        "schema_name": DynamicSchema.__name__,
-        "validated_data": validated_data.model_dump(),
+        "output_type": output_type,
         "output_envelope": output_envelope,
         "final_compiled_system": output_envelope,
         "validation_errors": [],
     }
 
 
-def normalize_payload_for_schema(schema, parameters: dict[str, Any], narrative_state: dict) -> dict:
-    payload = {}
-    for field_name in schema.model_fields:
-        if field_name in parameters:
-            payload[field_name] = parameters[field_name]
-        elif field_name == "version":
-            payload[field_name] = parameters.get("version") or "8.1"
-        elif field_name == "base_prompt":
-            payload[field_name] = extract_base_prompt(narrative_state)
-        elif field_name == "raw_parameters":
-            payload[field_name] = parameters
-    return payload
+def _dispatch_compiler(output_type: str, narrative_state: dict, domain_state: dict, domain_contract) -> dict:
+    if output_type == "app_stack":
+        return compile_app_stack(narrative_state, domain_state)
+    if output_type == "python_code":
+        return compile_python_code(narrative_state, domain_state)
+    if output_type == "csv":
+        return compile_csv(narrative_state, domain_state)
+    if output_type == "advanced_prompt":
+        return compile_advanced_prompt(narrative_state, domain_state)
+    return compile_text(narrative_state, domain_state)
 
 
-def compile_domain_deliverables(domain_id: str, validated_data: dict, narrative_state: dict, domain_contract) -> list[dict]:
-    if domain_id == "midjourney_v8_1_core":
-        base_prompt = extract_base_prompt(narrative_state)
-        parameters = [
-            f"--ar {validated_data['aspect_ratio']}",
-            f"--s {validated_data['stylize']}",
-            f"--v {validated_data.get('version') or '8.1'}",
-        ]
-        domain_parameters = narrative_state.get("domain_state", {}).get("domain_parameters", {})
-        if "chaos" in domain_parameters:
-            parameters.append(f"--chaos {domain_parameters['chaos']}")
-        if "seed" in domain_parameters:
-            parameters.append(f"--seed {domain_parameters['seed']}")
-        return [
-            {
-                "artifact_type": "prompt_package",
-                "positive_prompt": base_prompt,
-                "negative_prompt": "optional",
-                "parameters": " ".join(parameters),
-                "compiled_preview": f"{base_prompt} {' '.join(parameters)}".strip(),
-            }
-        ]
-
-    return [
-        {
-            "artifact_type": infer_artifact_type(narrative_state, domain_contract),
-            "validated_data": validated_data,
-            "output_schema": getattr(domain_contract, "output_schema", {}),
-        }
-    ]
-
-
-def build_output_envelope(
+def _build_output_envelope(
     domain_id: str,
     narrative_state: dict,
     domain_state: dict,
-    domain_contract,
-    validated_data: dict | None,
+    output_type: str,
     deliverables: list[dict],
-    validation_errors: list,
 ) -> dict:
     return {
-        "artifact_type": infer_artifact_type(narrative_state, domain_contract),
+        "output_type": output_type,
         "domain_id": domain_id,
         "phase": narrative_state.get("phase"),
         "objective": narrative_state.get("objective"),
@@ -132,41 +72,14 @@ def build_output_envelope(
             "output": narrative_state.get("output_contract") or {},
         },
         "domain_parameters": domain_state.get("domain_parameters") or {},
-        "validation": {
-            "status": "failed" if validation_errors else "passed",
-            "schema": f"{domain_id}_Schema",
-            "validated_data": validated_data,
-            "errors": validation_errors,
-        },
         "deliverables": deliverables,
-        "next_runtime_action": "EXECUTE_OUTPUT_RENDERER" if not validation_errors else "REPAIR_DOMAIN_CONTRACT",
+        "next_runtime_action": "EXECUTE_OUTPUT_RENDERER",
     }
-
-
-def infer_artifact_type(narrative_state: dict, domain_contract) -> str:
-    output_contract = narrative_state.get("output_contract") or {}
-    includes = output_contract.get("includes") or []
-    if any(item in includes for item in ["positive_prompt", "negative_prompt", "technical_parameters"]):
-        return "prompt_package"
-    if any(item in includes for item in ["micro_app", "app_spec", "ui_spec"]):
-        return "micro_app_spec"
-    if any(item in includes for item in ["legal_contract", "clause_summary"]):
-        return "document_package"
-    output_schema = getattr(domain_contract, "output_schema", {}) or {}
-    if output_schema:
-        return output_schema.get("artifact_type") or "domain_artifact"
-    return "domain_artifact"
-
-
-def extract_base_prompt(narrative_state: dict) -> str:
-    objective = narrative_state.get("objective") or ""
-    central = (narrative_state.get("central_objects") or ["system"])[0]
-    return f"{objective} / {central}".strip(" /")
 
 
 def execute_web_search_stub(parameters: dict) -> dict:
     api_key = os.getenv("TAVILY_API_KEY")
-    query = " ".join(str(value) for value in parameters.values() if value is not None).strip()
+    query = " ".join(str(v) for v in parameters.values() if v is not None).strip()
     if api_key and query:
         try:
             response = httpx.post(
@@ -179,11 +92,7 @@ def execute_web_search_stub(parameters: dict) -> dict:
             return {
                 "status": "ok",
                 "results": [
-                    {
-                        "title": item.get("title"),
-                        "url": item.get("url"),
-                        "content": item.get("content"),
-                    }
+                    {"title": item.get("title"), "url": item.get("url"), "content": item.get("content")}
                     for item in data.get("results", [])
                 ],
             }

@@ -278,3 +278,82 @@ textarea {
   font-weight: 800;
   cursor: pointer;
 }
+
+/* ── Compiled output rendering ── */
+.code-block-wrap {
+  position: relative;
+  margin: 6px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0d1117;
+  border: 1px solid rgba(34, 211, 238, 0.18);
+}
+
+.code-lang {
+  display: block;
+  padding: 3px 10px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #22d3ee;
+  background: rgba(34, 211, 238, 0.08);
+  letter-spacing: 0.06em;
+}
+
+.code-block {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.bubble-text {
+  margin: 0 0 4px;
+  line-height: 1.55;
+}
+
+.heading-1 {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.heading-2 {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 8px;
+  color: #22d3ee;
+}
+
+.csv-table-wrap {
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+.csv-table {
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  min-width: 100%;
+}
+
+.csv-table th,
+.csv-table td {
+  padding: 5px 10px;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.csv-table th {
+  background: rgba(34, 211, 238, 0.1);
+  color: #22d3ee;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+}

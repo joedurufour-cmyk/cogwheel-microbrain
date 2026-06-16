@@ -42,6 +42,16 @@ GAP_RESOLUTION_RULES = {
             "seed",
             "v 8.1",
             "midjourney",
+            "--ar",
+            "--s",
+            "--v",
+            "--chaos",
+            "--seed",
+            "stack",
+            "frontend",
+            "backend",
+            "python",
+            "csv",
         ],
         "write_to": "domain_state.domain_parameters",
         "next_gap": None,
@@ -151,17 +161,25 @@ def detect_input_modes(text: str) -> list[str]:
 
 def detect_output_includes(text: str) -> list[str]:
     includes = []
+    # Output type detection (5 types)
+    if any(k in text for k in ["stack", "arquitectura", "tech stack", "infraestructura", "servicios", "deployment"]):
+        includes.append("app_stack")
+    if any(k in text for k in ["python", "codigo python", "script", "clase", "funcion", "modulo"]):
+        includes.append("python_code")
+    if any(k in text for k in ["csv", "tabla", "spreadsheet", "excel", "filas", "columnas"]):
+        includes.append("csv")
+    if any(k in text for k in ["prompt", "midjourney", "dalle", "stable diffusion", "imagen", "render"]):
+        includes.append("advanced_prompt")
+    if any(k in text for k in ["texto", "documento", "articulo", "resumen", "descripcion"]):
+        includes.append("text")
+    # Legacy prompt sub-fields (kept for backward compat)
     if "prompt final" in text or "positive prompt" in text:
         includes.append("positive_prompt")
     if "negative prompt" in text:
         includes.append("negative_prompt")
     if "parametros" in text or "--ar" in text or "--s" in text or "--v" in text:
         includes.append("technical_parameters")
-    if "json" in text:
-        includes.append("json")
-    if "markdown" in text:
-        includes.append("markdown")
-    return ordered_unique(includes or ["positive_prompt"])
+    return ordered_unique(includes or ["text"])
 
 
 def detect_domain_parameters(text: str) -> dict:
