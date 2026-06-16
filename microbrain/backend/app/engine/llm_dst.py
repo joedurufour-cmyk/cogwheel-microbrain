@@ -34,7 +34,7 @@ Tu respuesta debe ser únicamente un objeto JSON válido con las siguientes llav
   "io_contract_input": "string (El formato de entrada, o 'none')",
   "io_contract_output": "string (El formato de salida, o 'none')",
   "domain_parameters": ["lista de strings extrayendo los sufijos o descripciones del dominio"],
-  "blocking_gap": "string (Describe la pieza crítica que falta para avanzar, o 'none' si el Paso 4 se cumple)",
+  "blocking_gap": "string (SOLO uno de estos valores exactos: 'missing_io_contract', 'missing_output_contract', 'missing_domain_parameters', o 'none' si el Paso 4 se cumple)",
   "next_move": "string (La siguiente instrucción al usuario, o 'EXECUTE_DOMAIN_COMPILER' si el Paso 4 se cumple)"
 }"""
 
@@ -97,7 +97,9 @@ def apply_llm_dst_to_gap_resolution(
     resolved = list(result.get("resolved_gaps") or [])
 
     next_move = llm_output.get("next_move") or ""
-    blocking_gap = llm_output.get("blocking_gap") or ""
+    blocking_gap_raw = llm_output.get("blocking_gap") or ""
+    _CANONICAL_GAPS = {"missing_io_contract", "missing_output_contract", "missing_domain_parameters"}
+    blocking_gap = blocking_gap_raw if blocking_gap_raw in _CANONICAL_GAPS else ""
     io_input = llm_output.get("io_contract_input") or ""
     io_output = llm_output.get("io_contract_output") or ""
     domain_params_raw = llm_output.get("domain_parameters") or []
