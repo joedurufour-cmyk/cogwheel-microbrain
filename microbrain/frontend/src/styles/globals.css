@@ -279,6 +279,14 @@ textarea {
   cursor: pointer;
 }
 
+.new-session-btn {
+  font-size: 1.1rem;
+  opacity: 0.7;
+}
+.new-session-btn:hover {
+  opacity: 1;
+}
+
 /* ── Compiled output rendering ── */
 .code-block-wrap {
   position: relative;
