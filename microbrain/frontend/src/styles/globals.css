@@ -29,13 +29,20 @@ textarea {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   width: min(100%, 560px);
   height: 100vh;
   height: 100dvh;
   margin: 0 auto;
   padding: 14px;
   gap: 12px;
+}
+
+.app-shell--simple {
+  grid-template-rows: auto 1fr;
+}
+
+.app-shell--dev {
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
 }
 
 .brand-header,
@@ -466,4 +473,200 @@ textarea {
 .artifact-debug-grid span:nth-child(even) {
   color: #8ea3b5;
   overflow-wrap: anywhere;
+}
+
+/* ── MJ Generator ── */
+.mj-generator {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.mj-input-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(17, 28, 38, 0.94), rgba(8, 15, 22, 0.88));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(18px);
+}
+
+.mj-textarea {
+  width: 100%;
+  min-height: 100px;
+  max-height: 180px;
+  resize: none;
+  padding: 13px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 16px;
+  outline: 0;
+  background: rgba(3, 7, 18, 0.68);
+  color: #e5eef7;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.mj-textarea:focus {
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.mj-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mj-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.mj-control span {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #8ea3b5;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.mj-control select,
+.mj-control input[type="number"] {
+  padding: 4px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.20);
+  border-radius: 10px;
+  background: rgba(3, 7, 18, 0.60);
+  color: #e5eef7;
+  font: inherit;
+  font-size: 0.78rem;
+  width: 72px;
+}
+
+.mj-control select {
+  width: auto;
+  min-width: 64px;
+}
+
+.mj-generate-btn {
+  align-self: flex-end;
+  padding: 10px 22px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #22d3ee, #38bdf8);
+  color: #041016;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+.mj-generate-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.mj-error {
+  padding: 10px 14px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #fca5a5;
+  font-size: 0.8rem;
+}
+
+.mj-output-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mj-canvas-block {
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(8, 35, 54, 0.96), rgba(4, 12, 22, 0.92));
+}
+
+.mj-canvas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.12);
+  background: rgba(34, 211, 238, 0.05);
+}
+
+.mj-canvas-label {
+  font-size: 0.63rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  color: #22d3ee;
+  text-transform: uppercase;
+}
+
+.mj-copy-btn {
+  padding: 3px 9px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 7px;
+  background: rgba(34, 211, 238, 0.08);
+  color: #d9fbff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mj-canvas {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  font-size: 0.76rem;
+  line-height: 1.65;
+  color: #e5eef7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mj-canvas-neg {
+  color: #94a3b8;
+}
+
+.mj-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.mj-action-btn {
+  padding: 9px 18px;
+  border: 1px solid rgba(34, 211, 238, 0.30);
+  border-radius: 14px;
+  background: rgba(34, 211, 238, 0.10);
+  color: #d9fbff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.mj-action-btn:hover {
+  background: rgba(34, 211, 238, 0.20);
+}
+
+.mj-dl {
+  opacity: 0.8;
+}
+
+.mj-dl:hover {
+  opacity: 1;
 }

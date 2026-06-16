@@ -5,6 +5,7 @@ import Composer from "./components/Composer.jsx";
 import CurrentFocus from "./components/CurrentFocus.jsx";
 import DevDrawer from "./components/DevDrawer.jsx";
 import Header from "./components/Header.jsx";
+import MjGenerator from "./components/MjGenerator.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? "http://localhost:8000" : "");
 
@@ -269,12 +270,18 @@ export default function App() {
 
   return (
     <>
-      <main className="app-shell">
+      <main className={`app-shell${developerMode ? " app-shell--dev" : " app-shell--simple"}`}>
         <Header developerMode={developerMode} onToggleDev={() => setDeveloperMode((value) => !value)} onNewSession={newSession} />
-        <ChatView messages={messages} />
-        <ArtifactCanvas artifact={lastTurn?.artifact} compiledDomain={lastTurn?.compiled_domain} apiBase={API_BASE} />
-        <CurrentFocus narrative={narrative} lastTurn={lastTurn} apiStatus={apiStatus} />
-        <Composer onSend={sendTurn} />
+        {developerMode ? (
+          <>
+            <ChatView messages={messages} />
+            <ArtifactCanvas artifact={lastTurn?.artifact} compiledDomain={lastTurn?.compiled_domain} apiBase={API_BASE} />
+            <CurrentFocus narrative={narrative} lastTurn={lastTurn} apiStatus={apiStatus} />
+            <Composer onSend={sendTurn} />
+          </>
+        ) : (
+          <MjGenerator apiBase={API_BASE} />
+        )}
       </main>
       <DevDrawer
         apiBase={API_BASE}

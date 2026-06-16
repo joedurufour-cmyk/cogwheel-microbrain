@@ -8,7 +8,7 @@ from app.db import init_db
 from app.engine.artifact_exporter import OUTPUTS_DIR
 from app.middleware.observability import ObservabilityMiddleware
 from app.middleware.security import SecurityMiddleware
-from app.routes import reports, sessions, tests, turns
+from app.routes import mj81, reports, sessions, tests, turns
 
 app = FastAPI(title="MicroBrain v0.3 API")
 
@@ -53,6 +53,7 @@ def serve_artifact(filename: str):
     return FileResponse(path, filename=filename)
 
 
+app.include_router(mj81.router)
 app.include_router(sessions.router)
 app.include_router(turns.router)
 app.include_router(reports.router)
