@@ -1,4 +1,4 @@
-export default function Header({ onToggleDev }) {
+export default function Header({ onToggleDev, onNewSession }) {
   return (
     <header className="brand-header">
       <div className="emblem-wrap" aria-hidden="true">
@@ -18,6 +18,15 @@ export default function Header({ onToggleDev }) {
         <h1>Cogwheel</h1>
         <p>System Design Navigator</p>
       </div>
+      <button
+        className="icon-button new-session-btn"
+        type="button"
+        onClick={onNewSession}
+        aria-label="Nueva sesión"
+        title="Nueva sesión"
+      >
+        ↺
+      </button>
       <button className="icon-button" type="button" onClick={onToggleDev} aria-label="Developer mode">
         {"</>"}
       </button>

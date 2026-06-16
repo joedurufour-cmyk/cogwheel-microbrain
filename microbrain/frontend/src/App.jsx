@@ -256,10 +256,20 @@ export default function App() {
     }
   }
 
+  function newSession() {
+    sessionStorage.removeItem("microbrain_session_id");
+    setSessionId(null);
+    setLastTurn(null);
+    setNarrative(null);
+    setMessages([{ role: "bot", text: "Sesión nueva. Trae el sistema que estás construyendo." }]);
+    setApiStatus(API_BASE ? "connecting" : "missing");
+    bootstrapSession();
+  }
+
   return (
     <>
       <main className="app-shell">
-        <Header developerMode={developerMode} onToggleDev={() => setDeveloperMode((value) => !value)} />
+        <Header developerMode={developerMode} onToggleDev={() => setDeveloperMode((value) => !value)} onNewSession={newSession} />
         <ChatView messages={messages} />
         <CurrentFocus narrative={narrative} lastTurn={lastTurn} apiStatus={apiStatus} />
         <Composer onSend={sendTurn} />

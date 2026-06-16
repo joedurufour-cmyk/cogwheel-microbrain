@@ -32,6 +32,10 @@ def render_answer(
     blocking_gap = narrative_model.get("blocking_gap")
     active_domain = domain_state.get("active_domain") or narrative_model.get("active_domain")
 
+    # Always show compiled output if it's ready — regardless of which turn triggered it
+    if compiled_domain.get("status") == "compiled":
+        return _render_compiled_output(compiled_domain)
+
     if "missing_io_contract" in gap_resolution.get("resolved_gaps", []):
         modes = narrative_model.get("input_contract", {}).get("mode", [])
         mode_label = " + ".join(mode.replace("_", " ") for mode in modes) or "texto libre"
