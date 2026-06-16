@@ -184,24 +184,25 @@ def detect_output_includes(text: str) -> list[str]:
 
 def detect_domain_parameters(text: str) -> dict:
     parameters = {}
-    ar_match = re.search(r"(?:--ar|aspect ratio|aspec ratio|ar)\s*(?:=|:)?\s*([0-9]+:[0-9]+)", text)
-    if ar_match:
-        parameters["aspect_ratio"] = ar_match.group(1)
-    s_match = re.search(r"(?:--s|stylize|s)\s*(?:=|:)?\s*([0-9]+)", text)
-    if s_match:
-        parameters["stylize"] = int(s_match.group(1))
-    if "--v 8.1" in text or "v 8.1" in text:
-        parameters["version"] = "8.1"
-    chaos_match = re.search(r"chaos\s*(?:=|:)?\s*([0-9]+)", text)
-    if chaos_match:
-        parameters["chaos"] = int(chaos_match.group(1))
-    elif "chaos" in text:
-        parameters["chaos"] = None
-    seed_match = re.search(r"seed\s*(?:=|:)?\s*([0-9]+)", text)
-    if seed_match:
-        parameters["seed"] = int(seed_match.group(1))
-    elif "seed" in text:
-        parameters["seed"] = None
+    _FLAG_PATTERNS = [
+        (r"(?:--ar|aspect ratio|aspec ratio)\s*(?:=|:)?\s*([0-9]+:[0-9]+)", "aspect_ratio", str),
+        (r"(?:--s|stylize)\s*(?:=|:)?\s*([0-9]+)", "stylize", int),
+        (r"(?:--v|version)\s*(?:=|:)?\s*([0-9.]+)", "version", str),
+        (r"(?:--chaos|--c\b|chaos)\s*(?:=|:)?\s*([0-9]+)", "chaos", int),
+        (r"(?:--seed|seed)\s*(?:=|:)?\s*([0-9]+)", "seed", int),
+    ]
+    consumed = text
+    for pattern, key, cast in _FLAG_PATTERNS:
+        m = re.search(pattern, consumed)
+        if m:
+            parameters[key] = cast(m.group(1))
+            consumed = consumed[:m.start()] + consumed[m.end():]
+
+    # Collect everything that isn't a flag as scene description
+    scene = re.sub(r"[,;]+", ",", consumed).strip(" ,;")
+    scene = re.sub(r"\s{2,}", " ", scene).strip()
+    if scene and len(scene) > 3:
+        parameters["scene_description"] = scene
     return parameters
 
 
