@@ -92,7 +92,12 @@ def compile_advanced_prompt(narrative_state: dict, domain_state: dict) -> dict:
     central = (narrative_state.get("central_objects") or ["system"])[0]
     active_domain = domain_state.get("active_domain") or ""
 
-    base = f"{objective} / {central}".strip(" /")
+    # Use captured scene description as prompt base; fall back to LLM generation
+    scene = params.get("scene_description") or ""
+    if not scene and os.getenv("ANTHROPIC_API_KEY"):
+        scene = _generate_midjourney_scene(objective, central, params)
+    base = scene or f"{objective} / {central}".strip(" /")
+
     flags = []
     if params.get("aspect_ratio"):
         flags.append(f"--ar {params['aspect_ratio']}")
@@ -113,13 +118,13 @@ def compile_advanced_prompt(narrative_state: dict, domain_state: dict) -> dict:
     preview_lines = [
         f"**Plataforma:** {platform}",
         "",
-        f"**Positive prompt:**",
-        f"```",
+        "**Positive prompt:**",
+        "```",
         compiled,
-        f"```",
+        "```",
     ]
     if negative:
-        preview_lines += ["", f"**Negative prompt:**", f"```", negative, "```"]
+        preview_lines += ["", "**Negative prompt:**", "```", negative, "```"]
 
     return {
         "artifact_type": "advanced_prompt",
@@ -205,6 +210,32 @@ def _generate_python_with_llm(objective: str, central: str, params: dict) -> str
         return raw
     except Exception:
         return _python_template(objective, central, params)
+
+
+def _generate_midjourney_scene(objective: str, central: str, params: dict) -> str:
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        context = f"Objetivo: {objective}\nObjeto central: {central}"
+        if params:
+            skip = {"aspect_ratio", "stylize", "version", "chaos", "seed", "negative_prompt", "scene_description"}
+            extras = {k: v for k, v in params.items() if k not in skip}
+            if extras:
+                context += f"\nDetalles adicionales: {json.dumps(extras, ensure_ascii=False)}"
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            system=(
+                "Eres un experto en Midjourney. "
+                "Genera SOLO la descripción visual del prompt positivo en inglés: "
+                "sujeto, acción, escena, estilo fotográfico, iluminación, atmósfera. "
+                "Sin flags técnicos (--ar, --s). Sin explicaciones. Solo el texto del prompt."
+            ),
+            messages=[{"role": "user", "content": context}],
+        )
+        return response.content[0].text.strip()
+    except Exception:
+        return f"{objective} / {central}".strip(" /")
 
 
 def _python_template(objective: str, central: str, params: dict) -> str:

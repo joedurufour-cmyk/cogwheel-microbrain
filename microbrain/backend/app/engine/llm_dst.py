@@ -109,6 +109,13 @@ def apply_llm_dst_to_gap_resolution(
             if gap not in resolved:
                 resolved.append(gap)
         result["blocking_gap"] = None
+        # Still extract domain parameters — this turn may contain scene content or flags
+        if domain_params_raw:
+            extracted = _parse_domain_parameters(domain_params_raw)
+            if extracted:
+                existing = dict(domain_state.get("domain_parameters") or {})
+                existing.update(extracted)
+                result["domain_parameters"] = existing
         result["resolved_gaps"] = resolved
         return result
 
@@ -162,30 +169,44 @@ def _build_context(user_input: str, state: dict) -> str:
 
 def _parse_domain_parameters(raw: list) -> dict:
     result = {}
+    descriptive: list[str] = []
     for item in raw:
         if not isinstance(item, str):
             continue
         item = item.strip()
         if not item or item in _EMPTY:
             continue
-        ar = re.search(r"--ar\s+([0-9]+:[0-9]+)", item)
+        matched = False
+        ar = re.search(r"(?:--ar|ar)\s+([0-9]+:[0-9]+)", item, re.IGNORECASE)
         if ar:
             result["aspect_ratio"] = ar.group(1)
-        s_match = re.search(r"--s\s+([0-9]+)", item)
+            matched = True
+        s_match = re.search(r"(?:--s|stylize)\s+([0-9]+)", item, re.IGNORECASE)
         if s_match:
             result["stylize"] = int(s_match.group(1))
-        v_match = re.search(r"--v\s+([0-9.]+)", item)
+            matched = True
+        v_match = re.search(r"--v\s+([0-9.]+)", item, re.IGNORECASE)
         if v_match:
             result["version"] = v_match.group(1)
-        chaos = re.search(r"--chaos\s+([0-9]+)", item)
+            matched = True
+        chaos = re.search(r"(?:--chaos|--c)\s+([0-9]+)", item, re.IGNORECASE)
         if chaos:
             result["chaos"] = int(chaos.group(1))
-        seed = re.search(r"--seed\s+([0-9]+)", item)
+            matched = True
+        seed = re.search(r"--seed\s+([0-9]+)", item, re.IGNORECASE)
         if seed:
             result["seed"] = int(seed.group(1))
-        if ":" in item and not any(k in item for k in ("--ar", "--s", "--v", "--chaos", "--seed")):
+            matched = True
+        if not matched and ":" in item:
             key, _, value = item.partition(":")
             key = key.strip().lstrip("-").replace(" ", "_").lower()
             if key:
                 result[key] = value.strip()
+                matched = True
+        if not matched:
+            descriptive.append(item)
+    if descriptive:
+        existing = result.get("scene_description", "")
+        joined = ", ".join(descriptive)
+        result["scene_description"] = f"{existing}, {joined}".strip(", ") if existing else joined
     return result
