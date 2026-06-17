@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Check, Copy, Download, Zap } from "lucide-react";
+import { compilePlatformPrompt } from "@/lib/platformCompilers";
 
 const PLATFORMS = [
   { id: "midjourney_v8_1", label: "Midjourney V8.1" },
@@ -8,36 +9,6 @@ const PLATFORMS = [
 ];
 
 const AR_OPTIONS = ["1:1", "16:9", "9:16", "3:2", "2:3", "4:3", "3:4", "4:5", "5:4", "5:11", "21:9", "7:4"];
-
-const MJ_NEGATIVE =
-  "blurry, low quality, distorted, watermark, text overlay, oversaturated, bad anatomy, cropped, out of frame";
-
-// Simplified local fallback (no blueprint parsing — used offline when API unavailable)
-function compileLocally(inputText, platform, params) {
-  const base = inputText.trim();
-  if (!base) return null;
-
-  let positive;
-  if (platform === "midjourney_v8_1") {
-    const suffix = `--ar ${params.ar} --s ${params.s} --c ${params.c} --w ${params.w} --q ${params.q} --v 8.1`;
-    positive = `${base}, cinematic realism, epic atmosphere, dramatic lighting, wide shot, high detail ${suffix}`;
-  } else if (platform === "dalle_3") {
-    positive = `Create an image of ${base}. Cinematic realism. Epic atmosphere. Dramatic lighting. Wide shot composition. Highly detailed.`;
-  } else {
-    positive = `Transform into a cinematic scene: ${base}. Cinematic realism. Epic atmosphere with dramatic lighting. Strong wide shot composition, striking environmental detail.`;
-  }
-
-  const negative =
-    platform === "midjourney_v8_1" && params.output_mode === "prompt_plus_negative"
-      ? MJ_NEGATIVE
-      : "";
-
-  const canvas = negative
-    ? `POSITIVE PROMPT\n${positive}\n\nNEGATIVE PROMPT\n${negative}`
-    : positive;
-
-  return { status: "DONE_WITH_PROMPT", positive_prompt: positive, negative_prompt: negative, canvas, file: null, platform };
-}
 
 export default function MjGenerator({ apiBase }) {
   const [inputText, setInputText] = useState("");
@@ -74,7 +45,7 @@ export default function MjGenerator({ apiBase }) {
     setLoading(true);
     const fullParams = { ...params, platform };
     if (!apiBase) {
-      setResult(compileLocally(inputText, platform, fullParams));
+      setResult(compilePlatformPrompt(inputText, platform, fullParams));
       setLoading(false);
       return;
     }
@@ -87,7 +58,7 @@ export default function MjGenerator({ apiBase }) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setResult(await res.json());
     } catch {
-      setResult(compileLocally(inputText, platform, fullParams));
+      setResult(compilePlatformPrompt(inputText, platform, fullParams));
     } finally {
       setLoading(false);
     }

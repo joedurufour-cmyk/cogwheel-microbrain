@@ -18,6 +18,8 @@ export function KimifyApp() {
     loadPreset,
     isLayerComplete,
     completionPercentage,
+    autoInfer,
+    lastInference,
   } = useKimify();
 
   const [showRecipes, setShowRecipes] = useState(false);
@@ -134,6 +136,8 @@ export function KimifyApp() {
               activeLayer={activeLayer}
               updateField={updateField}
               toggleDetail={toggleDetail}
+              autoInfer={autoInfer}
+              lastInference={lastInference}
             />
           )}
         </div>

@@ -4,6 +4,7 @@
 // ============================================================
 
 import { useState, useCallback, useMemo } from 'react';
+import { inferFromSubject } from '@/lib/kimifyInference';
 
 const defaultState = {
   // K - KERNEL
@@ -55,6 +56,7 @@ const defaultState = {
 export function useKimify() {
   const [state, setState] = useState({ ...defaultState });
   const [activeLayer, setActiveLayer] = useState('K');
+  const [lastInference, setLastInference] = useState(null);
 
   const updateField = useCallback((field, value) => {
     setState(prev => ({ ...prev, [field]: value }));
@@ -77,6 +79,21 @@ export function useKimify() {
   const loadPreset = useCallback((preset) => {
     setState(prev => ({ ...prev, ...preset }));
   }, []);
+
+  const autoInfer = useCallback(() => {
+    const result = inferFromSubject(state.subject, state);
+    setLastInference(result.meta);
+    setState(prev => {
+      const next = { ...prev };
+      for (const [field, value] of Object.entries(result.fields)) {
+        const isUntouched = Array.isArray(defaultState[field])
+          ? prev[field].length === 0
+          : prev[field] === defaultState[field];
+        if (isUntouched) next[field] = value;
+      }
+      return next;
+    });
+  }, [state]);
 
   const isLayerComplete = useCallback((layer) => {
     switch (layer) {
@@ -106,5 +123,7 @@ export function useKimify() {
     loadPreset,
     isLayerComplete,
     completionPercentage,
+    autoInfer,
+    lastInference,
   };
 }

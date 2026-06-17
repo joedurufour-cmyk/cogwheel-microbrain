@@ -1,5 +1,7 @@
 import re
 
+from app.engine.kimify_domains import infer_domain
+
 # === Resemblance patterns (must run before character normalization) ===
 
 _RESEMBLANCE_PATTERNS = [
@@ -116,67 +118,7 @@ _CHARACTER_MAP = {
     "científico": "scientist", "explorador": "explorer",
 }
 
-# === Inference rules ===
-
-_MOOD_RULES = [
-    (["destruida", "destruido", "destroyed", "ruinas", "ruins", "apocalíptico",
-      "apocalyptic", "caos", "chaos"], "epic"),
-    (["tormenta", "storm", "oscuro", "dark", "horror", "sombra", "shadow",
-      "miedo", "nightmare", "terror"], "ominous"),
-    (["magia", "magic", "mágico", "magical", "fantasía", "fantasy",
-      "hada", "fairy", "encantado", "enchanted"], "mystical"),
-    (["amor", "love", "romance", "tierno", "tender"], "romantic"),
-    (["batalla", "battle", "guerra", "war", "lucha", "fight",
-      "combate", "combat", "atacando", "attack"], "intense"),
-    (["paz", "peace", "sereno", "serene", "calma", "calm", "bosque", "forest"], "serene"),
-    (["espacio", "space", "galaxia", "galaxy", "cosmos", "nebulosa", "nebula"], "cosmic"),
-    (["cyberpunk", "neon", "futuro", "future", "cyber", "digital", "futurista"], "futuristic"),
-    (["llamas", "flames", "fuego", "fire", "ardiente", "burning", "volcán"], "intense"),
-]
-
-_LIGHTING_RULES = [
-    (["noche", "night", "luna", "moon", "moonlit"], "moonlit"),
-    (["amanecer", "dawn", "sunrise"], "golden hour"),
-    (["atardecer", "sunset", "crepúsculo", "dusk"], "golden hour"),
-    (["fuego", "fire", "llamas", "flames", "ardiente", "burning"], "firelit"),
-    (["tormenta", "storm", "relámpago", "lightning"], "stormy backlight"),
-    (["espacio", "space", "galaxia", "galaxy", "nebulosa", "nebula"], "cosmic glow"),
-    (["neon", "cyberpunk", "holographic", "futurista"], "neon lit"),
-    (["sol", "sun", "soleado", "sunny", "daylight"], "natural daylight"),
-]
-
-_CAMERA_RULES = [
-    (["levitando", "levitating", "volando", "flying",
-      "flotando", "floating", "sobre", "above"], "low angle wide shot"),
-    (["ciudad", "city", "paisaje", "landscape",
-      "espacio", "space", "galaxia", "galaxy", "metrópoli"], "wide shot"),
-    (["retrato", "portrait", "cara", "face", "rostro", "close up", "close-up"], "close-up portrait"),
-    (["batalla", "battle", "atacando", "fighting", "acción", "action"], "dynamic action shot"),
-    (["cayendo", "falling", "desde arriba", "overhead"], "bird's eye view"),
-]
-
-_STYLE_RULES = [
-    (["cyberpunk", "neon", "cyber", "holographic", "futurista"], "cyberpunk aesthetic"),
-    (["anime", "manga", "shonen", "shojo"], "anime style"),
-    (["fantasía", "fantasy", "dragón", "dragon", "magia", "magic",
-      "castillo", "castle", "hada", "fairy"], "fantasy concept art"),
-    (["espacio", "space", "galaxia", "galaxy", "nebulosa", "nebula",
-      "sci-fi", "ciencia ficción"], "science fiction concept art"),
-    (["foto", "photo", "real", "realista", "realistic", "fotografía"], "photorealistic"),
-    (["pintura", "painting", "óleo", "oil"], "oil painting"),
-    (["acuarela", "watercolor", "watercolour"], "watercolor painting"),
-    (["pixel", "retro", "8bit", "8-bit"], "pixel art"),
-]
-
-
 # === Core functions ===
-
-def _match_rule(text: str, rules: list) -> str | None:
-    for keywords, value in rules:
-        if any(k in text for k in keywords):
-            return value
-    return None
-
 
 def translate_full_text(text: str) -> str:
     """Translate Spanish free text to English while preserving ALL descriptors and proper nouns."""
@@ -224,18 +166,47 @@ def translate_full_text(text: str) -> str:
 
 
 def parse_blueprint(text: str) -> dict:
-    """Parse free text into a VisualBlueprint dict with full translated description."""
+    """Parse free text into a full KIMIFY-layered blueprint.
+
+    The kernel description is translated Spanish->English (translate_full_text),
+    while every other layer (Intent/Medium/Illumination/Format/Yield) is resolved
+    by the shared domain-detection engine (kimify_domains.infer_domain), the same
+    one that powers the Pro Builder's auto-inference, so every platform compiler
+    applies the same prompt-engineering rules instead of single-value heuristics.
+    """
     # Strip MJ suffix flags before parsing
     clean = re.sub(r"--\w+\s*\S*", "", text).strip()
-    text_lower = clean.lower()
 
     full_description = translate_full_text(clean)
+    domain_result = infer_domain(clean)
+    fields = domain_result["fields"]
 
     return {
         "full_description": full_description,
-        "style": _match_rule(text_lower, _STYLE_RULES) or "cinematic realism",
-        "mood": _match_rule(text_lower, _MOOD_RULES) or "epic",
-        "lighting": _match_rule(text_lower, _LIGHTING_RULES) or "dramatic",
-        "camera": _match_rule(text_lower, _CAMERA_RULES) or "wide shot",
-        "quality": "high detail",
+        "subject_details": fields["subject_details"],
+        "subject_modifiers": fields["subject_modifiers"],
+        "style_intent": fields["style_intent"],
+        "mood": fields["mood"],
+        "visual_style": fields["visual_style"],
+        "era_period": fields["era_period"],
+        "camera": fields["camera"],
+        "lens": fields["lens"],
+        "film": fields["film"],
+        "rendering_engine": fields["rendering_engine"],
+        "lighting": fields["lighting"],
+        "time_of_day": fields["time_of_day"],
+        "atmosphere": fields["atmosphere"],
+        "weather": fields["weather"],
+        "composition": fields["composition"],
+        "angle": fields["angle"],
+        "dof": fields["dof"],
+        "color": fields["color"],
+        "aspect_ratio": fields["aspect_ratio"],
+        "stylize": fields["stylize"],
+        "chaos": fields["chaos"],
+        "raw": fields["raw"],
+        "negative": fields["negative"],
+        "domain_id": domain_result["meta"]["domain_id"],
+        "domain_label": domain_result["meta"]["label"],
+        "matched_keywords": domain_result["meta"]["matched_keywords"],
     }
