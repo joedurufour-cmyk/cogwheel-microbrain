@@ -12,6 +12,18 @@ _RESEMBLANCE_PATTERNS = [
     (r"al\s+estilo\s+de\s+([^,\.]+)", r"in the style of \1"),
 ]
 
+# Posture participle + preposition phrases, collapsed so the preposition
+# doesn't get translated again right after (e.g. "apoyada en X" -> "leaning
+# against X", not "leaning against in X").
+_POSTURE_PATTERNS = [
+    (r"apoyad[ao]\s+(?:en|contra)\s+", "leaning against "),
+    (r"recostad[ao]\s+(?:en|sobre)\s+", "reclining on "),
+    (r"sentad[ao]\s+(?:en|sobre)\s+", "seated on "),
+    (r"parad[ao]\s+(?:en|sobre)\s+", "standing on "),
+    (r"acostad[ao]\s+(?:en|sobre)\s+", "lying on "),
+    (r"arrodillad[ao]\s+(?:en|sobre)\s+", "kneeling on "),
+]
+
 # === Translation tables ===
 
 _ES_GERUNDS = {
@@ -37,6 +49,8 @@ _ES_NOUNS = {
     "laboratorio": "laboratory", "nave": "spaceship", "planeta": "planet",
     "arena": "sand", "playa": "beach", "isla": "island", "volcán": "volcano",
     "techo": "rooftop", "calle": "street", "edificio": "building",
+    "pared": "wall", "muro": "wall", "capa": "cape", "torre": "tower",
+    "roca": "rock", "puerta": "door", "ventana": "window", "columna": "column",
 }
 
 _ES_ADJECTIVES = {
@@ -73,6 +87,13 @@ _ES_ADJECTIVES = {
     "luminosa": "radiant", "luminoso": "radiant",
     "dorada": "golden", "dorado": "golden",
     "plateada": "silver", "plateado": "silver",
+    # Past-participle posture descriptors
+    "apoyada": "leaning against", "apoyado": "leaning against",
+    "recostada": "reclining", "recostado": "reclining",
+    "sentada": "seated", "sentado": "seated",
+    "parada": "standing", "parado": "standing",
+    "acostada": "lying down", "acostado": "lying down",
+    "arrodillada": "kneeling", "arrodillado": "kneeling",
 }
 
 _ES_PREPOSITIONS = {
@@ -126,6 +147,11 @@ def translate_full_text(text: str) -> str:
 
     # Step 1: Resemblance phrases (before any other substitution)
     for pattern, repl in _RESEMBLANCE_PATTERNS:
+        result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
+
+    # Step 1b: Posture participle + preposition phrases (collapse before
+    # the lone preposition gets translated again right after)
+    for pattern, repl in _POSTURE_PATTERNS:
         result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
 
     # Step 2: Normalize known character names (longest match first)
