@@ -635,6 +635,39 @@ textarea {
   cursor: not-allowed;
 }
 
+.mj-generate-row {
+  display: flex;
+  gap: 10px;
+  align-self: flex-end;
+}
+
+.mj-generate-styles-btn {
+  align-self: auto;
+  background: linear-gradient(145deg, #a78bfa, #818cf8);
+}
+
+.mj-variants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.mj-variant-card {
+  border: 1px solid rgba(167, 139, 250, 0.28);
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(35, 21, 54, 0.96), rgba(12, 7, 22, 0.92));
+}
+
+.mj-variant-card .mj-canvas-header {
+  border-bottom: 1px solid rgba(167, 139, 250, 0.16);
+  background: rgba(167, 139, 250, 0.06);
+}
+
+.mj-variant-card .mj-canvas-label {
+  color: #c4b5fd;
+}
+
 .mj-error {
   padding: 10px 14px;
   border: 1px solid rgba(239, 68, 68, 0.3);
