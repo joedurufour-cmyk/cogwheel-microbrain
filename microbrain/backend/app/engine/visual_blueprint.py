@@ -1,0 +1,241 @@
+import re
+
+# === Resemblance patterns (must run before character normalization) ===
+
+_RESEMBLANCE_PATTERNS = [
+    (r"con\s+(?:la\s+)?cara\s+de\s+([^,\.]+)", r"resembling \1"),
+    (r"con\s+(?:el\s+)?rostro\s+de\s+([^,\.]+)", r"resembling \1"),
+    (r"parecida?\s+a\s+([^,\.]+)", r"resembling \1"),
+    (r"que\s+se\s+parece\s+a\s+([^,\.]+)", r"resembling \1"),
+    (r"al\s+estilo\s+de\s+([^,\.]+)", r"in the style of \1"),
+]
+
+# === Translation tables ===
+
+_ES_GERUNDS = {
+    "levitando": "levitating", "volando": "flying", "corriendo": "running",
+    "luchando": "fighting", "cayendo": "falling", "saltando": "jumping",
+    "mirando": "looking", "sosteniendo": "holding", "caminando": "walking",
+    "flotando": "floating", "destruyendo": "destroying", "atacando": "attacking",
+    "defendiendo": "defending", "huyendo": "fleeing", "escalando": "climbing",
+    "nadando": "swimming", "bailando": "dancing", "meditando": "meditating",
+    "observando": "observing", "disparando": "shooting",
+}
+
+_ES_NOUNS = {
+    "ciudad": "city", "bosque": "forest", "desierto": "desert",
+    "montaña": "mountain", "océano": "ocean", "mar": "sea", "cielo": "sky",
+    "noche": "night", "amanecer": "dawn", "atardecer": "sunset",
+    "fuego": "fire", "agua": "water", "hielo": "ice", "nieve": "snow",
+    "lluvia": "rain", "tormenta": "storm", "nebulosa": "nebula",
+    "espacio": "space", "galaxia": "galaxy", "universo": "universe",
+    "puente": "bridge", "rascacielo": "skyscraper", "templo": "temple",
+    "castillo": "castle", "ruinas": "ruins", "selva": "jungle",
+    "cueva": "cave", "aldea": "village", "metrópoli": "metropolis",
+    "laboratorio": "laboratory", "nave": "spaceship", "planeta": "planet",
+    "arena": "sand", "playa": "beach", "isla": "island", "volcán": "volcano",
+    "techo": "rooftop", "calle": "street", "edificio": "building",
+}
+
+_ES_ADJECTIVES = {
+    "destruida": "destroyed", "destruido": "destroyed",
+    "abandonada": "abandoned", "abandonado": "abandoned",
+    "oscuro": "dark", "oscura": "dark",
+    "luminoso": "bright", "luminosa": "bright",
+    "apocalíptico": "apocalyptic", "épico": "epic",
+    "mágico": "magical", "mágica": "magical",
+    "antiguo": "ancient", "antigua": "ancient",
+    "futurista": "futuristic", "helado": "frozen", "helada": "frozen",
+    "ardiente": "burning", "sumergido": "submerged", "sumergida": "submerged",
+    "nevado": "snowy", "nevada": "snowy", "lluvioso": "rainy", "lluviosa": "rainy",
+    # Descriptor adjectives (critical for preserving user input)
+    "sexy": "sexy", "sensual": "sensual",
+    "muscular": "muscular", "musculosa": "muscular", "musculoso": "muscular",
+    "definida": "defined", "definido": "defined",
+    "alta": "tall", "alto": "tall",
+    "baja": "short", "bajo": "short",
+    "delgada": "slender", "delgado": "slender",
+    "fuerte": "strong",
+    "poderosa": "powerful", "poderoso": "powerful",
+    "hermosa": "beautiful", "hermoso": "beautiful",
+    "elegante": "elegant",
+    "feroz": "fierce",
+    "majestuosa": "majestic", "majestuoso": "majestic",
+    "enorme": "enormous",
+    "pequeña": "small", "pequeño": "small",
+    "joven": "young",
+    "anciana": "elderly", "anciano": "elderly",
+    "veloce": "swift", "veloz": "swift",
+    "brillante": "brilliant",
+    "oscuro": "dark", "oscura": "dark",
+    "luminosa": "radiant", "luminoso": "radiant",
+    "dorada": "golden", "dorado": "golden",
+    "plateada": "silver", "plateado": "silver",
+}
+
+_ES_PREPOSITIONS = {
+    "sobre": "above", "encima": "above",
+    "bajo": "below", "debajo": "below",
+    "dentro": "inside",
+    "fuera": "outside",
+    "en": "in",
+    "entre": "between",
+    "detrás": "behind",
+    "junto": "beside",
+    "con": "with",
+    "de": "of",
+    "frente": "in front of",
+}
+
+_ARTICLES = {
+    "un", "una", "el", "la", "los", "las", "unos", "unas",
+    "al", "del",
+}
+
+_CHARACTER_MAP = {
+    "supergirl": "superheroine", "superman": "superhero",
+    "batman": "dark knight", "batgirl": "dark heroine",
+    "wonder woman": "warrior goddess", "iron man": "armored hero",
+    "spider-man": "web-slinging hero", "spiderman": "web-slinging hero",
+    "thor": "norse god warrior", "hulk": "hulking green warrior",
+    "captain america": "super soldier", "black widow": "elite spy",
+    "aquaman": "underwater king", "flash": "speedster hero",
+    "green lantern": "cosmic guardian", "catwoman": "feline thief",
+    "guerrero": "warrior", "guerrera": "female warrior",
+    "mago": "sorcerer", "maga": "sorceress",
+    "bruja": "witch", "brujo": "warlock",
+    "dragón": "dragon", "dragon": "dragon",
+    "robot": "robot", "androide": "android", "cyborg": "cyborg",
+    "astronauta": "astronaut", "vikingo": "viking warrior",
+    "samurai": "samurai", "ninja": "ninja",
+    "caballero": "knight", "princesa": "princess",
+    "reina": "queen", "rey": "king",
+    "soldado": "soldier", "detective": "detective",
+    "héroe": "hero", "heroína": "heroine",
+    "villano": "villain", "villana": "villainess",
+    "científico": "scientist", "explorador": "explorer",
+}
+
+# === Inference rules ===
+
+_MOOD_RULES = [
+    (["destruida", "destruido", "destroyed", "ruinas", "ruins", "apocalíptico",
+      "apocalyptic", "caos", "chaos"], "epic"),
+    (["tormenta", "storm", "oscuro", "dark", "horror", "sombra", "shadow",
+      "miedo", "nightmare", "terror"], "ominous"),
+    (["magia", "magic", "mágico", "magical", "fantasía", "fantasy",
+      "hada", "fairy", "encantado", "enchanted"], "mystical"),
+    (["amor", "love", "romance", "tierno", "tender"], "romantic"),
+    (["batalla", "battle", "guerra", "war", "lucha", "fight",
+      "combate", "combat", "atacando", "attack"], "intense"),
+    (["paz", "peace", "sereno", "serene", "calma", "calm", "bosque", "forest"], "serene"),
+    (["espacio", "space", "galaxia", "galaxy", "cosmos", "nebulosa", "nebula"], "cosmic"),
+    (["cyberpunk", "neon", "futuro", "future", "cyber", "digital", "futurista"], "futuristic"),
+    (["llamas", "flames", "fuego", "fire", "ardiente", "burning", "volcán"], "intense"),
+]
+
+_LIGHTING_RULES = [
+    (["noche", "night", "luna", "moon", "moonlit"], "moonlit"),
+    (["amanecer", "dawn", "sunrise"], "golden hour"),
+    (["atardecer", "sunset", "crepúsculo", "dusk"], "golden hour"),
+    (["fuego", "fire", "llamas", "flames", "ardiente", "burning"], "firelit"),
+    (["tormenta", "storm", "relámpago", "lightning"], "stormy backlight"),
+    (["espacio", "space", "galaxia", "galaxy", "nebulosa", "nebula"], "cosmic glow"),
+    (["neon", "cyberpunk", "holographic", "futurista"], "neon lit"),
+    (["sol", "sun", "soleado", "sunny", "daylight"], "natural daylight"),
+]
+
+_CAMERA_RULES = [
+    (["levitando", "levitating", "volando", "flying",
+      "flotando", "floating", "sobre", "above"], "low angle wide shot"),
+    (["ciudad", "city", "paisaje", "landscape",
+      "espacio", "space", "galaxia", "galaxy", "metrópoli"], "wide shot"),
+    (["retrato", "portrait", "cara", "face", "rostro", "close up", "close-up"], "close-up portrait"),
+    (["batalla", "battle", "atacando", "fighting", "acción", "action"], "dynamic action shot"),
+    (["cayendo", "falling", "desde arriba", "overhead"], "bird's eye view"),
+]
+
+_STYLE_RULES = [
+    (["cyberpunk", "neon", "cyber", "holographic", "futurista"], "cyberpunk aesthetic"),
+    (["anime", "manga", "shonen", "shojo"], "anime style"),
+    (["fantasía", "fantasy", "dragón", "dragon", "magia", "magic",
+      "castillo", "castle", "hada", "fairy"], "fantasy concept art"),
+    (["espacio", "space", "galaxia", "galaxy", "nebulosa", "nebula",
+      "sci-fi", "ciencia ficción"], "science fiction concept art"),
+    (["foto", "photo", "real", "realista", "realistic", "fotografía"], "photorealistic"),
+    (["pintura", "painting", "óleo", "oil"], "oil painting"),
+    (["acuarela", "watercolor", "watercolour"], "watercolor painting"),
+    (["pixel", "retro", "8bit", "8-bit"], "pixel art"),
+]
+
+
+# === Core functions ===
+
+def _match_rule(text: str, rules: list) -> str | None:
+    for keywords, value in rules:
+        if any(k in text for k in keywords):
+            return value
+    return None
+
+
+def translate_full_text(text: str) -> str:
+    """Translate Spanish free text to English while preserving ALL descriptors and proper nouns."""
+    result = text.strip().rstrip(",")
+
+    # Step 1: Resemblance phrases (before any other substitution)
+    for pattern, repl in _RESEMBLANCE_PATTERNS:
+        result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
+
+    # Step 2: Normalize known character names (longest match first)
+    for name in sorted(_CHARACTER_MAP, key=len, reverse=True):
+        result = re.sub(rf"\b{re.escape(name)}\b", _CHARACTER_MAP[name], result, flags=re.IGNORECASE)
+
+    # Step 3: Handle Spanish noun+adj → English adj+noun word order
+    for es_noun, en_noun in _ES_NOUNS.items():
+        for es_adj, en_adj in _ES_ADJECTIVES.items():
+            result = re.sub(
+                rf"\b{re.escape(es_noun)}\s+{re.escape(es_adj)}\b",
+                f"{en_adj} {en_noun}", result, flags=re.IGNORECASE,
+            )
+
+    # Step 4: Token-by-token translation of remaining Spanish words
+    tokens = result.split()
+    translated = []
+    for token in tokens:
+        suffix_punct = ""
+        clean = token.rstrip(".,;")
+        if len(clean) < len(token):
+            suffix_punct = token[len(clean):]
+        t = clean.lower()
+
+        if t in _ARTICLES:
+            continue  # Drop Spanish articles
+
+        en = (
+            _ES_GERUNDS.get(t)
+            or _ES_PREPOSITIONS.get(t)
+            or _ES_NOUNS.get(t)
+            or _ES_ADJECTIVES.get(t)
+            or clean  # Keep as-is: English words, proper nouns, already-translated text
+        )
+        translated.append(en + suffix_punct)
+
+    return " ".join(translated)
+
+
+def parse_blueprint(text: str) -> dict:
+    """Parse free text into a VisualBlueprint dict with full translated description."""
+    # Strip MJ suffix flags before parsing
+    clean = re.sub(r"--\w+\s*\S*", "", text).strip()
+    text_lower = clean.lower()
+
+    full_description = translate_full_text(clean)
+
+    return {
+        "full_description": full_description,
+        "style": _match_rule(text_lower, _STYLE_RULES) or "cinematic realism",
+        "mood": _match_rule(text_lower, _MOOD_RULES) or "epic",
+        "lighting": _match_rule(text_lower, _LIGHTING_RULES) or "dramatic",
+        "camera": _match_rule(text_lower, _CAMERA_RULES) or "wide shot",
+        "quality": "high detail",
+    }
