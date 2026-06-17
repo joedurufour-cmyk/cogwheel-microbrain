@@ -8,9 +8,11 @@
 // ============================================================
 
 import { inferFromSubject } from '@/lib/kimifyInference';
+import { translateToEnglish } from '@/lib/translateToEnglish';
+import { applyStylePreset, STYLE_PRESETS } from '@/lib/stylePresets';
 
 function layerStrings(subjectText, fields) {
-  const kernelParts = [subjectText];
+  const kernelParts = [translateToEnglish(subjectText)];
   if (fields.subjectDetails?.length) kernelParts.push(fields.subjectDetails.join(', '));
   if (fields.subjectModifiers?.length) kernelParts.push(fields.subjectModifiers.join(', '));
 
@@ -82,11 +84,7 @@ function compileNanoBanana(layers) {
   return parts.join(' ');
 }
 
-export function compilePlatformPrompt(inputText, platform, params = {}) {
-  const base = (inputText || '').trim();
-  if (!base) return null;
-
-  const { fields, meta } = inferFromSubject(base);
+function compileForPlatform(base, fields, platform, params) {
   const layers = layerStrings(base, fields);
 
   let positive;
@@ -103,6 +101,16 @@ export function compilePlatformPrompt(inputText, platform, params = {}) {
 
   const canvas = negative ? `POSITIVE PROMPT\n${positive}\n\nNEGATIVE PROMPT\n${negative}` : positive;
 
+  return { positive, negative, canvas };
+}
+
+export function compilePlatformPrompt(inputText, platform, params = {}) {
+  const base = (inputText || '').trim();
+  if (!base) return null;
+
+  const { fields, meta } = inferFromSubject(base);
+  const { positive, negative, canvas } = compileForPlatform(base, fields, platform, params);
+
   return {
     status: 'DONE_WITH_PROMPT',
     positive_prompt: positive,
@@ -111,5 +119,31 @@ export function compilePlatformPrompt(inputText, platform, params = {}) {
     file: null,
     platform,
     domain: meta,
+  };
+}
+
+// Compile the same Kernel into all 6 fixed output-style presets at once.
+export function compileAllStylesPrompt(inputText, platform, params = {}) {
+  const base = (inputText || '').trim();
+  if (!base) return null;
+
+  const { fields } = inferFromSubject(base);
+
+  const variants = STYLE_PRESETS.map((preset) => {
+    const styledFields = applyStylePreset(fields, preset);
+    const { positive, negative, canvas } = compileForPlatform(base, styledFields, platform, params);
+    return {
+      style_id: preset.id,
+      style_label: preset.label,
+      positive_prompt: positive,
+      negative_prompt: negative,
+      canvas,
+    };
+  });
+
+  return {
+    status: 'DONE_WITH_VARIANTS',
+    platform,
+    variants,
   };
 }

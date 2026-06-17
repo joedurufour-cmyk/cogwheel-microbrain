@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Check, Copy, Download, Zap } from "lucide-react";
-import { compilePlatformPrompt } from "@/lib/platformCompilers";
+import { Check, Copy, Download, Zap, LayoutGrid } from "lucide-react";
+import { compilePlatformPrompt, compileAllStylesPrompt } from "@/lib/platformCompilers";
 
 const PLATFORMS = [
   { id: "midjourney_v8_1", label: "Midjourney V8.1" },
@@ -19,6 +19,7 @@ export default function MjGenerator({ apiBase }) {
   const [error, setError] = useState(null);
   const [copiedPos, setCopiedPos] = useState(false);
   const [copiedAll, setCopiedAll] = useState(false);
+  const [copiedVariant, setCopiedVariant] = useState(null);
 
   // Clear stale result when user edits input
   useEffect(() => {
@@ -64,6 +65,32 @@ export default function MjGenerator({ apiBase }) {
     }
   }
 
+  async function handleGenerateAllStyles() {
+    if (!inputText.trim()) return;
+    setResult(null);
+    setError(null);
+    setLoading(true);
+    const fullParams = { ...params, platform };
+    if (!apiBase) {
+      setResult(compileAllStylesPrompt(inputText, platform, fullParams));
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`${apiBase}/api/mj81/compile-styles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input_text: inputText, params: fullParams }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setResult(await res.json());
+    } catch {
+      setResult(compileAllStylesPrompt(inputText, platform, fullParams));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function copy(text, setter) {
     navigator.clipboard.writeText(text).then(() => {
       setter(true);
@@ -71,8 +98,16 @@ export default function MjGenerator({ apiBase }) {
     });
   }
 
+  function copyVariant(text, styleId) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedVariant(styleId);
+      setTimeout(() => setCopiedVariant(null), 1800);
+    });
+  }
+
   const isMj = platform === "midjourney_v8_1";
   const isReady = result?.status === "DONE_WITH_PROMPT";
+  const hasVariants = result?.status === "DONE_WITH_VARIANTS";
 
   return (
     <div className="mj-generator">
@@ -140,13 +175,22 @@ export default function MjGenerator({ apiBase }) {
           </div>
         )}
 
-        <button
-          className="mj-generate-btn"
-          onClick={handleGenerate}
-          disabled={loading || !inputText.trim()}
-        >
-          {loading ? "compiling…" : <><Zap size={15} />Generate</>}
-        </button>
+        <div className="mj-generate-row">
+          <button
+            className="mj-generate-btn"
+            onClick={handleGenerate}
+            disabled={loading || !inputText.trim()}
+          >
+            {loading ? "compiling…" : <><Zap size={15} />Generate</>}
+          </button>
+          <button
+            className="mj-generate-btn mj-generate-styles-btn"
+            onClick={handleGenerateAllStyles}
+            disabled={loading || !inputText.trim()}
+          >
+            {loading ? "compiling…" : <><LayoutGrid size={15} />6 Estilos</>}
+          </button>
+        </div>
       </div>
 
       {error && <div className="mj-error">{error}</div>}
@@ -188,6 +232,29 @@ export default function MjGenerator({ apiBase }) {
                 <Download size={13} />{result.file.filename}
               </a>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Variants grid (6 styles at once) */}
+      {hasVariants && (
+        <div className="mj-output-zone">
+          <div className="mj-section-label">6 Estilos generados</div>
+          <div className="mj-variants-grid">
+            {result.variants.map((v) => (
+              <div key={v.style_id} className="mj-variant-card">
+                <div className="mj-canvas-header">
+                  <span className="mj-canvas-label">{v.style_label}</span>
+                  <button className="mj-copy-btn" onClick={() => copyVariant(v.canvas, v.style_id)}>
+                    {copiedVariant === v.style_id ? <Check size={12} /> : <Copy size={12} />}
+                  </button>
+                </div>
+                <pre className="mj-canvas">{v.positive_prompt}</pre>
+                {v.negative_prompt && (
+                  <pre className="mj-canvas mj-canvas-neg">{v.negative_prompt}</pre>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
