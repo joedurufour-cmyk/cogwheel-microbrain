@@ -12,6 +12,18 @@ _RESEMBLANCE_PATTERNS = [
     (r"al\s+estilo\s+de\s+([^,\.]+)", r"in the style of \1"),
 ]
 
+# Posture participle + preposition phrases, collapsed so the preposition
+# doesn't get translated again right after (e.g. "apoyada en X" -> "leaning
+# against X", not "leaning against in X").
+_POSTURE_PATTERNS = [
+    (r"apoyad[ao]\s+(?:en|contra)\s+", "leaning against "),
+    (r"recostad[ao]\s+(?:en|sobre)\s+", "reclining on "),
+    (r"sentad[ao]\s+(?:en|sobre)\s+", "seated on "),
+    (r"parad[ao]\s+(?:en|sobre)\s+", "standing on "),
+    (r"acostad[ao]\s+(?:en|sobre)\s+", "lying on "),
+    (r"arrodillad[ao]\s+(?:en|sobre)\s+", "kneeling on "),
+]
+
 # === Translation tables ===
 
 _ES_GERUNDS = {
@@ -37,6 +49,9 @@ _ES_NOUNS = {
     "laboratorio": "laboratory", "nave": "spaceship", "planeta": "planet",
     "arena": "sand", "playa": "beach", "isla": "island", "volcán": "volcano",
     "techo": "rooftop", "calle": "street", "edificio": "building",
+    "pared": "wall", "muro": "wall", "capa": "cape", "torre": "tower",
+    "roca": "rock", "puerta": "door", "ventana": "window", "columna": "column",
+    "estilo": "style",
 }
 
 _ES_ADJECTIVES = {
@@ -73,6 +88,14 @@ _ES_ADJECTIVES = {
     "luminosa": "radiant", "luminoso": "radiant",
     "dorada": "golden", "dorado": "golden",
     "plateada": "silver", "plateado": "silver",
+    # Past-participle posture descriptors
+    "apoyada": "leaning against", "apoyado": "leaning against",
+    "recostada": "reclining", "recostado": "reclining",
+    "sentada": "seated", "sentado": "seated",
+    "parada": "standing", "parado": "standing",
+    "acostada": "lying down", "acostado": "lying down",
+    "arrodillada": "kneeling", "arrodillado": "kneeling",
+    "hiper": "hyper",
 }
 
 _ES_PREPOSITIONS = {
@@ -128,6 +151,11 @@ def translate_full_text(text: str) -> str:
     for pattern, repl in _RESEMBLANCE_PATTERNS:
         result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
 
+    # Step 1b: Posture participle + preposition phrases (collapse before
+    # the lone preposition gets translated again right after)
+    for pattern, repl in _POSTURE_PATTERNS:
+        result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
+
     # Step 2: Normalize known character names (longest match first)
     for name in sorted(_CHARACTER_MAP, key=len, reverse=True):
         result = re.sub(rf"\b{re.escape(name)}\b", _CHARACTER_MAP[name], result, flags=re.IGNORECASE)
@@ -144,10 +172,8 @@ def translate_full_text(text: str) -> str:
     tokens = result.split()
     translated = []
     for token in tokens:
-        suffix_punct = ""
-        clean = token.rstrip(".,;")
-        if len(clean) < len(token):
-            suffix_punct = token[len(clean):]
+        match = re.match(r"^([.,;]*)(.*?)([.,;]*)$", token)
+        prefix_punct, clean, suffix_punct = match.groups()
         t = clean.lower()
 
         if t in _ARTICLES:
@@ -160,7 +186,7 @@ def translate_full_text(text: str) -> str:
             or _ES_ADJECTIVES.get(t)
             or clean  # Keep as-is: English words, proper nouns, already-translated text
         )
-        translated.append(en + suffix_punct)
+        translated.append(prefix_punct + en + suffix_punct)
 
     return " ".join(translated)
 
