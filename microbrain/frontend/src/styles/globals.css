@@ -6,6 +6,26 @@
   color: #e5eef7;
   background: #070b10;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* shadcn/ui design tokens (KIMIFY Pro Builder) */
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
+  --radius: 0.625rem;
 }
 
 * {
@@ -718,4 +738,97 @@ textarea {
 
 .mj-dl:hover {
   opacity: 1;
+}
+
+/* ── Mode switch (Generador / Pro Builder) ── */
+.mj-mode-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mj-mode-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mj-mode-btn {
+  padding: 6px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 20px;
+  background: rgba(3, 7, 18, 0.50);
+  color: #8ea3b5;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.mj-mode-btn.active {
+  border-color: rgba(244, 63, 94, 0.55);
+  background: rgba(244, 63, 94, 0.12);
+  color: #ffe4e9;
+}
+
+.mj-mode-btn:hover:not(.active) {
+  border-color: rgba(148, 163, 184, 0.38);
+  color: #c8dae8;
+}
+
+.mj-mode-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 22px;
+}
+
+/* ── KIMIFY Pro Builder scoped overrides ── */
+.kimify-pro {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.kimify-pro ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.kimify-pro ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kimify-pro ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+
+.kimify-pro ::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+.kimify-pro [data-slot="slider-track"] {
+  background: #27272a !important;
+  height: 4px !important;
+}
+
+.kimify-pro [data-slot="slider-range"] {
+  background: linear-gradient(to right, #f43f5e, #f97316) !important;
+}
+
+.kimify-pro [data-slot="slider-thumb"] {
+  background: #fff !important;
+  border: 2px solid #f43f5e !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.kimify-pro .line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
