@@ -6,6 +6,7 @@ import CurrentFocus from "./components/CurrentFocus.jsx";
 import DevDrawer from "./components/DevDrawer.jsx";
 import Header from "./components/Header.jsx";
 import MjGenerator from "./components/MjGenerator.jsx";
+import { KimifyApp } from "./components/KimifyApp.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? "http://localhost:8000" : "");
 
@@ -160,6 +161,7 @@ export default function App() {
   const [lastTurn, setLastTurn] = useState(null);
   const [developerMode, setDeveloperMode] = useState(false);
   const [apiStatus, setApiStatus] = useState(API_BASE ? "connecting" : "missing");
+  const [mode, setMode] = useState("simple");
 
   useEffect(() => {
     bootstrapSession();
@@ -280,7 +282,25 @@ export default function App() {
             <Composer onSend={sendTurn} />
           </>
         ) : (
-          <MjGenerator apiBase={API_BASE} />
+          <div className="mj-mode-wrap">
+            <div className="mj-mode-bar">
+              <button
+                className={`mj-mode-btn${mode === "simple" ? " active" : ""}`}
+                onClick={() => setMode("simple")}
+              >
+                Generador
+              </button>
+              <button
+                className={`mj-mode-btn${mode === "pro" ? " active" : ""}`}
+                onClick={() => setMode("pro")}
+              >
+                Pro Builder
+              </button>
+            </div>
+            <div className="mj-mode-content">
+              {mode === "simple" ? <MjGenerator apiBase={API_BASE} /> : <KimifyApp />}
+            </div>
+          </div>
         )}
       </main>
       <DevDrawer
