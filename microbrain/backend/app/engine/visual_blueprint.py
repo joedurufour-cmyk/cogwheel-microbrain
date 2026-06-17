@@ -51,6 +51,7 @@ _ES_NOUNS = {
     "techo": "rooftop", "calle": "street", "edificio": "building",
     "pared": "wall", "muro": "wall", "capa": "cape", "torre": "tower",
     "roca": "rock", "puerta": "door", "ventana": "window", "columna": "column",
+    "estilo": "style",
 }
 
 _ES_ADJECTIVES = {
@@ -94,6 +95,7 @@ _ES_ADJECTIVES = {
     "parada": "standing", "parado": "standing",
     "acostada": "lying down", "acostado": "lying down",
     "arrodillada": "kneeling", "arrodillado": "kneeling",
+    "hiper": "hyper",
 }
 
 _ES_PREPOSITIONS = {
@@ -170,10 +172,8 @@ def translate_full_text(text: str) -> str:
     tokens = result.split()
     translated = []
     for token in tokens:
-        suffix_punct = ""
-        clean = token.rstrip(".,;")
-        if len(clean) < len(token):
-            suffix_punct = token[len(clean):]
+        match = re.match(r"^([.,;]*)(.*?)([.,;]*)$", token)
+        prefix_punct, clean, suffix_punct = match.groups()
         t = clean.lower()
 
         if t in _ARTICLES:
@@ -186,7 +186,7 @@ def translate_full_text(text: str) -> str:
             or _ES_ADJECTIVES.get(t)
             or clean  # Keep as-is: English words, proper nouns, already-translated text
         )
-        translated.append(en + suffix_punct)
+        translated.append(prefix_punct + en + suffix_punct)
 
     return " ".join(translated)
 

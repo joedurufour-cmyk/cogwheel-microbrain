@@ -3,12 +3,14 @@
 // Assembles the final Midjourney prompt from state
 // ============================================================
 
+import { translateToEnglish } from '@/lib/translateToEnglish';
+
 export function buildPrompt(state) {
   const parts = [];
 
   // ─── K: KERNEL ───
   if (state.subject) {
-    let subjectPart = state.subject;
+    let subjectPart = translateToEnglish(state.subject);
     if (state.subjectDetails.length > 0) {
       subjectPart += ', ' + state.subjectDetails.join(', ');
     }
