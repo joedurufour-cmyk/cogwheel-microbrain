@@ -6,9 +6,10 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { Info, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Info, Check, Wand2 } from 'lucide-react';
 
-export function KimifyBuilder({ state, activeLayer, updateField, toggleDetail }) {
+export function KimifyBuilder({ state, activeLayer, updateField, toggleDetail, autoInfer, lastInference }) {
   const layerColor = useMemo(() => {
     const colors = {
       K: '#FF3B5C', I: '#FF9F1C', M: '#2EC4B6', I2: '#3A86FF', F: '#8338EC', Y: '#06D6A0',
@@ -29,6 +30,24 @@ export function KimifyBuilder({ state, activeLayer, updateField, toggleDetail })
           className="bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-600 min-h-[80px] resize-none focus:border-rose-500 focus:ring-rose-500/20"
         />
         <p className="text-[10px] text-zinc-500 mt-1">Ej: "a confident young woman, warrior princess"</p>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!state.subject}
+          onClick={autoInfer}
+          className="mt-3 h-8 text-[11px] border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+        >
+          <Wand2 className="w-3.5 h-3.5 mr-1.5" />
+          Auto-inferir capas I · M · I2 · F · Y
+        </Button>
+        {lastInference && (
+          <p className="text-[10px] text-zinc-500 mt-1.5">
+            Dominio detectado: <span className="text-rose-400">{lastInference.label}</span>
+            {lastInference.matchedKeywords.length > 0 && (
+              <> — palabras clave: {lastInference.matchedKeywords.join(', ')}</>
+            )}
+          </p>
+        )}
       </div>
 
       <div>
