@@ -7,14 +7,9 @@ from app.engine.visual_blueprint import parse_blueprint
 
 VALID_PLATFORMS = {"midjourney_v8_1", "dalle_3", "nano_banana"}
 
-_PLATFORM_NEGATIVES = {
-    "midjourney_v8_1": (
-        "blurry, low quality, distorted, watermark, text overlay, "
-        "oversaturated, bad anatomy, cropped, out of frame"
-    ),
-    "dalle_3": "",
-    "nano_banana": "",
-}
+# Only Midjourney supports a --no negative prompt flag; DALL-E and Nano
+# Banana are natural-language platforms with no negative-prompt concept.
+_PLATFORMS_WITH_NEGATIVE = {"midjourney_v8_1"}
 
 
 def compile_mj81(input_text: str, params: dict) -> dict:
@@ -36,7 +31,7 @@ def compile_mj81(input_text: str, params: dict) -> dict:
         positive = compile_nano_banana(blueprint)
 
     output_mode = params.get("output_mode", "prompt_plus_negative")
-    default_negative = _PLATFORM_NEGATIVES.get(platform, "")
+    default_negative = blueprint["negative"] if platform in _PLATFORMS_WITH_NEGATIVE else ""
     negative = default_negative if (output_mode == "prompt_plus_negative" and default_negative) else ""
 
     canvas = _render_canvas(positive, negative)
